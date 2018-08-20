@@ -25,20 +25,29 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.content.startswith('!test'):
-        counter = 0
-        tmp = await client.send_message(message.channel, 'Calculate messages...')
-        async for log in client.logs_from(message.channel, limit=100):
-            if log.author == message.author:
-                counter += 1
+    if message.author != client.user:
+        print("INCOMING MESSAGE!")
 
-        await client.edit_message(tmp, 'You have {} messages.'.format(counter))
-    elif message.content.startswith('!sleep'):
-        await asyncio.sleep(5)
-        await client.send_message(message.channel, 'Done sleeping')
+        command, args = message.content.split(' ', 1)
 
-    #support echo function
-    elif message.content.startswith('!echo'):
-        echo.echo(client, message)
+        print("Executing command '{}' with args '{}'".format(command, args))
+
+        if command == '!test':
+            counter = 0
+            tmp = await client.send_message(message.channel, 'Calculate messages...')
+            async for log in client.logs_from(message.channel, limit=100):
+                if log.author == message.author:
+                    counter += 1
+
+            await client.edit_message(tmp, 'You have {} messages.'.format(counter))
+        elif command == '!sleep':
+            await asyncio.sleep(5)
+            await client.send_message(message.channel, 'Done sleeping')
+
+        #support echo function
+        elif command == '!echo':
+            await client.send_message(message.channel, args)
+
+        print("Finished!")
 
 client.run(bot_login_token)
