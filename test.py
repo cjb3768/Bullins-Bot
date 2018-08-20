@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import logging
-from Commands import echo
+from Commands import echo, help
 
 logging.basicConfig(level=logging.INFO)
 
@@ -52,6 +52,8 @@ async def on_message(message):
         elif command == '!echo':
             await echo.echo(client, message, args)
 
+        elif command == '!help':
+            await help.execute(client, message, args)
         #print("Finished!")
 
 client.run(bot_login_token)
