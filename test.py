@@ -1,6 +1,7 @@
 import discord
-import logging
 import asyncio
+import logging
+from Commands import echo
 
 logging.basicConfig(level=logging.INFO)
 
@@ -10,8 +11,8 @@ def generate_oauth_url(client_id, permissions):
     return "https://discordapp.com/api/oauth2/authorize?client_id={}&permissions={}&scope=bot".format(client_id, permissions)
 
 #read in token info from bot_token.txt
-file = open("bot_token.txt","r")
-token = file.read()
+token_file = open("bot_token.txt","r")
+bot_login_token = token_file.read()
 
 client = discord.Client()
 
@@ -36,4 +37,8 @@ async def on_message(message):
         await asyncio.sleep(5)
         await client.send_message(message.channel, 'Done sleeping')
 
-client.run(token)
+    #support echo function
+    elif message.content.startswith('!echo'):
+        echo.echo(client, message)
+
+client.run(bot_login_token)
