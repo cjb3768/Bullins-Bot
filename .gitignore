@@ -1,2 +1,5 @@
-#Site_tokens
+#Site tokens
 bot_token.txt
+
+#Python Cache
+*.pyc
