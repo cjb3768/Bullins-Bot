@@ -1,5 +1,7 @@
-#Site tokens
+#Site tokens, urls and secrets
 bot_token.txt
+client_info.json
+current_url.txt
 
 #Python Cache
 *.pyc
