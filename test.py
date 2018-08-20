@@ -26,9 +26,13 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.author != client.user:
-        print("INCOMING MESSAGE!")
+        #print("INCOMING MESSAGE!")
 
-        command, args = message.content.split(' ', 1)
+        try:
+            command, args = message.content.split(' ', 1)
+        except ValueError:
+            #print("Value Error Caught")
+            command, args = message.content, ''
 
         print("Executing command '{}' with args '{}'".format(command, args))
 
@@ -48,6 +52,6 @@ async def on_message(message):
         elif command == '!echo':
             await client.send_message(message.channel, args)
 
-        print("Finished!")
+        #print("Finished!")
 
 client.run(bot_login_token)
