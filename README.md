@@ -7,4 +7,4 @@ Commands are prefaced by the call phrase `Bull!`
 
 ### Command List
 
-* Echo phrase - repeats "phrase" in current chat
+* `echo 'phrase'` - repeats "phrase" in current chat
