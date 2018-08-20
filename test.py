@@ -50,7 +50,7 @@ async def on_message(message):
 
         #support echo function
         elif command == '!echo':
-            await client.send_message(message.channel, args)
+            await echo.echo(client, message, args)
 
         #print("Finished!")
 

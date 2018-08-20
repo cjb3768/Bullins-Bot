@@ -1,9 +1,7 @@
 import discord
 import asyncio
 
-def echo (client, message):
+async def echo (client, message, args):
     """Copy user message after the echo statement"""
-    print(message.channel)
-    echoed_message = message.content[5:]
-    print("Echoing message")
-    return client.send_message(message.channel, "I heard you!")
+    #print("Echoing message")
+    await client.send_message(message.channel, args)
