@@ -3,7 +3,7 @@ Rudimentary Discord bot for running administrative functions and streaming music
 
 Command Format
 
-Commands are prefaced by the call phrase 'Bull!'
+Commands are prefaced by the call phrase `Bull!`
 
 Command List
 
