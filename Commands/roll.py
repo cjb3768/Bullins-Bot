@@ -76,4 +76,4 @@ async def execute(client, message, args, _):
     #roll_result = sum_dice(args)
     roll_result = eval_dice(args.replace(" ",""))
     logger.info("{} rolled a total of {} ({})".format(message.author, roll_result[0], roll_result[1]))
-    await client.send_message(message.author, "{}, you rolled a total of {} ({})".format(message.author.display_name, roll_result[0], roll_result[1]))
+    await client.send_message(message.channel, "{}, you rolled a total of {} ({})".format(message.author.display_name, roll_result[0], roll_result[1]))
