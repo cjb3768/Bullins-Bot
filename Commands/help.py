@@ -8,20 +8,21 @@ async def execute(client, message, args, modules):
     """Send user a private message with a list of all supported functions or the key functionality of a given command"""
 
     if args:
-        logger.debug("looking for spicific info about command %s.", args)
+        logger.debug("User looking for spicific info about command %s.", args)
 
         try:
-            await client.send_message(message.author, "'{}': {}".format(args, modules[args].execute.__doc__))
+            await client.send_message(message.author, "*{}*: {}".format(args, modules[args].execute.__doc__))
         except KeyError:
             logger.warning("Unknown command '%s'!", args)
 
     else:
-        logger.debug("looking for general help.")
+        logger.debug("User looking for general help.")
 
-        module_list = "\n"
-        for command in modules:
-            module_list += command + "\n"
+        # Build a sting of a list of modules.
+        module_list = '\n'.join(modules)
 
-        helptext = "Supports the following commands:{}Type `!help [command]` for more information.".format(module_list)
+        # Build a string to display.
+        helptext = "I support the following commands:\n{}\nTry `help [command]` for more information.".format(module_list)
 
+        # Send a direct message to the user with requested information.
         await client.send_message(message.author, helptext)
