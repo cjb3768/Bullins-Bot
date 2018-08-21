@@ -5,11 +5,11 @@ import logging
 logger = logging.getLogger("bullinsbot.play")
 
 async def execute(client, message, args, _):
-    """Play music from an online source back over a given voice channel
+    """Stream from an online source back over a given voice channel
        Supported platforms will be added to this note as they are added
 
        Currently supported:
-
+       Youtube videos
     """
     #TODO: check to see what kind of link is in args, if there even is one
 
@@ -24,8 +24,24 @@ async def execute(client, message, args, _):
 
     #TODO: make sure voice actually is connected to a valid channel
 
-    player = await voice.create_ytdl_player(args, after=voice.disconnect)
+    client.player = await voice.create_ytdl_player(args, after=voice.disconnect)
     await client.send_message(message.channel, "Playing \"{}\" by {}, as requested by {}".format(player.title, player.uploader, message.author.display_name))
-    #player.start()
+    client.player.start()
 
-    #await client.send_message(message.author, "I'm playing music mommy/daddy!")
+async def pause(client):
+    """Pause stream playback"""
+    #TODO: Make sure video exists and is playing
+    if client.player.is_playing():
+        await client.player.pause()
+        await client.send_message(message.channel, "Stream paused."))
+    else:
+        await client.send_message(message.channel, "Nothing is playing right now."))
+
+async def resume(client):
+    """Resume stream playback"""
+    #TODO: Make sure video exists and is paused
+    if not client.player.is_playing():
+        await client.player.resume()
+        await client.send_message(message.channel, "Stream resumed."))
+    else:
+        await client.send_message(message.channel, "Playback isn't currently paused."))
