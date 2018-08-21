@@ -7,19 +7,23 @@ def roll_die(num_sides):
     return randint(1, int(num_sides))
 
 def sum_dice(dice_string):
-    """Roll a sequence of die and add them up"""
+    """Roll a sequence of die and add them up; also reports all roll results"""
     dice_sum = 0
-    print(dice_string)
+    result_string = ""
     die_list = dice_string.replace(" ","").split("+")
-    print(die_list)
     for dice in die_list:
         quantity, size = dice.split('d',1)
         for i in range(0,int(quantity)):
-            dice_sum += roll_die(size)
-            print(dice_sum)
-    return dice_sum
+            roll_result = roll_die(size)
+            dice_sum += roll_result
+            if result_string == "":
+                result_string = str(roll_result)
+            else:
+                result_string = result_string + " + " + str(roll_result)
+            print(result_string)
+    return [dice_sum, result_string]
 
 async def execute(client, message, args):
-    """Roll a number of dice for the user, with modifiers, and return the result"""
+    """Roll a number of dice for the user, without modifiers, and return the result"""
     roll_result = sum_dice(args)
-    await client.send_message(message.author, "{} rolled a total of {}".format(message.author, roll_result))
+    await client.send_message(message.author, "{} rolled a total of {} ({})".format(message.author, roll_result[0], roll_result[1]))
