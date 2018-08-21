@@ -69,7 +69,7 @@ def roll_mod(dice_string):
     """Return a dice roll modifier"""
     return (int(dice_string),dice_string)
 
-async def execute(client, message, args):
+async def execute(client, message, args, _):
     """Roll a number of dice for the user, with modifiers, and return both the roll total and a string of individual roll results
        Supports rolls of the format 'xdy +/- m', where x is the number of rolls, y is the number of sides on the die, and m is a positive integer modifier to your roll
        Rolls and modifiers can be chained in any order. Do not use parentheses or negative numbers."""
