@@ -25,6 +25,7 @@ async def execute(client, message, args, _):
     #TODO: make sure voice actually is connected to a valid channel
 
     player = await voice.create_ytdl_player(args, after=voice.disconnect)
-    player.start()
+    await client.send_message(message.channel, "Playing \"{}\" by {}, as requested by {}".format(player.title, player.uploader, message.author.display_name))
+    #player.start()
 
-    await client.send_message(message.author, "I'm playing music mommy/daddy!")
+    #await client.send_message(message.author, "I'm playing music mommy/daddy!")
