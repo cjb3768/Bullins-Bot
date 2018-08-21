@@ -6,6 +6,7 @@ import Commands
 
 logger = logging.getLogger("bullinsbot")
 client = discord.Client()
+invocation = "b! "
 modules = {}
 
 @client.event
@@ -19,19 +20,18 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    #TODO: Instead of checking if the author is not itself, check to see if they are of a 'bot-controller' roll in Discord
-    if message.author != client.user:
+    if message.content.startswith(invocation):
         try:
-            command, args = message.content.split(' ', 1)
+            _, command, args = message.content.split(' ', 2)
         except ValueError:
-            command, args = message.content, ''
+            _, command, args = message.content.split(' ', 1), ''
 
         logger.info("Given command '%s' with args '%s'", command, args)
 
         try:
             await modules[command].execute(client, message, args, modules)
         except KeyError:
-            logger.warning("Unrecognized command: %s", command)
+            logger.error("Unrecognized command: %s", command)
             #respond that the command is unrecognized and suggest checking 'help'
 
 def main():
@@ -39,7 +39,7 @@ def main():
 
     prefix = Commands.__name__ + "."
     for importer, mod_name, ispkg in pkgutil.iter_modules(Commands.__path__, prefix):
-        sub_mod_name = "!" + mod_name.split(".", 1)[-1]
+        sub_mod_name = mod_name.split(".", 1)[-1]
         modules[sub_mod_name] = importer.find_module(mod_name).load_module(mod_name)
 
     logger.info("Found %s command modules.", len(modules))
