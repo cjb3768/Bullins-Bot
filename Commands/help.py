@@ -23,7 +23,7 @@ async def execute(client, message, args, modules):
         module_list = '*\n*'.join(modules)
 
         # Build a string to display.
-        helptext = "I support the following commands:\n*{}*\nTry `help [command]` for more information.".format(module_list)
+        helptext = "I support the following commands:\n*{}*\nTry `{}help [command]` for more information.".format(module_list, client.invocation)
 
         # Send a direct message to the user with requested information.
         await client.send_message(message.author, helptext)
