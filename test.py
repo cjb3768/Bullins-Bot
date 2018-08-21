@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import logging
-from Commands import echo, help, play
+from Commands import echo, help, play, roll
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,13 +50,16 @@ async def on_message(message):
 
         #support echo function
         elif command == '!echo':
-            await echo.echo(client, message, args)
+            await echo.execute(client, message, args)
 
         elif command == '!help':
             await help.execute(client, message, args)
 
         elif command == "!play":
             await play.execute(client, message, args)
+
+        elif command == "!roll":
+            await roll.execute(client, message, args)
         #print("Finished!")
 
 client.run(bot_login_token)
