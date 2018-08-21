@@ -1,10 +1,16 @@
 # Bullins-Bot
-Rudimentary Discord bot for running administrative functions and streaming music as audio over voice channels
+A simple Discord bot for streaming music as audio over voice channels, and other various tasks. Uses Python 3.6.3 and the [discord.py](https://github.com/Rapptz/discord.py) library.
 
 ### Command Format
 
-Commands are prefaced by the call phrase `Bull!`
+Commands are prefaced by the invocation `b!`, for example:
+
+* `b! help`
+* `b! echo Hello, World!`
 
 ### Command List
 
-* `echo 'phrase'` - repeats "phrase" in current chat
+* `help [command]` - Request available commands, or info on specific command if given.
+* `echo phrase` - Repeats 'phrase' in current chat.
+* `roll dice` - Randomly rolls dice with support for many different types and modifiers.
+* `play link` - Plays YouTube video in the voice chat you are currently in.
