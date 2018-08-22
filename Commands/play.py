@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import logging
+from youtube_dl import utils
 
 logger = logging.getLogger("bullinsbot.play")
 
@@ -12,22 +13,49 @@ async def execute(client, message, args, _):
        Youtube videos
     """
 
-    #TODO: make sure voice actually is connected to a valid channel
+    if args == "pause":
+        try:
+            await pause(client)
+        except AttributeError:
+            logger.error("No stream player to pause.")
+            await client.send_message(message.channel, "Error: No stream to pause.")
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            await client.send_message(message.channel, "An unknown error has occured")
 
-    if args.startswith("http"):
-        #this is a video request; connect to channel if not already connected, load stream, and play
-        #TODO: Check to see if client connected to a voice channel already
-        await connect_to_voice_channel(client, message)
-        #TODO: check to see what kind of link is in args; right now assuming youtube
-        await load_youtube_video(client, message, args)
-        await start_stream(client)
+    elif args == "resume":
+        try:
+            await resume(client)
+        except AttributeError:
+            logger.error("No stream player to resume.")
+            await client.send_message(message.channel, "Error: No stream to resume.")
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            await client.send_message(message.channel, "An unknown error has occured")
 
-    elif args.startswith("pause"):
-        await pause(client)
+    else:
+        try:
+            #this is a video request; connect to channel if not already connected, load stream, and play
+            #TODO: Check to see if client connected to a voice channel already
+            await connect_to_voice_channel(client, message)
+            #TODO: check to see what kind of link is in args; right now assuming youtube
+            await load_youtube_video(client, message, args)
+            await start_stream(client)
 
-    elif args.startswith("resume"):
-        await resume(client)
+        except ClientException:
+            logger.error("User is already in a voice channel.")
 
+        except AttributeError:
+            logger.error("User not connected to voice channel.")
+            await client.send_message(message.channel, "Error: Requestor isn't in a voice channel.")
+
+        except utils.DownloadError:
+            logger.error("Unable to download video")
+            await client.send_message(message.channel, "Error: Invalid link.")
+
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            await client.send_message(message.channel, "An unknown error has occurred.")
 
 async def connect_to_voice_channel(client,message):
     #find voice channel author is in
@@ -37,7 +65,7 @@ async def connect_to_voice_channel(client,message):
         if message.author in channel.voice_members:
             logger.info("{} is in voice channel {}. Joining.".format(message.author.display_name, channel.name))
             client.voice = await client.join_voice_channel(channel)
-    #TODO: Handle when the user isn't connected to a channel
+
 
 async def load_youtube_video(client,message,args):
     """Create a youtube download player to stream audio from a youtube video"""
@@ -45,12 +73,10 @@ async def load_youtube_video(client,message,args):
     await client.send_message(message.channel, "Loaded \"{}\" by {}, as requested by {}".format(client.player.title, client.player.uploader, message.author.display_name))
 
 async def start_stream(client):
-    #TODO: Make sure player exists and video loaded
     client.player.start()
 
 async def pause(client):
     """Pause stream playback"""
-    #TODO: Make sure player exists
     if client.player.is_playing():
         await client.player.pause()
         await client.send_message(message.channel, "Stream paused.")
@@ -59,7 +85,6 @@ async def pause(client):
 
 async def resume(client):
     """Resume stream playback"""
-    #TODO: Make sure player exists
     if client.player.is_playing():
         await client.send_message(message.channel, "Playback isn't currently paused.")
     else:
