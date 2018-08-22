@@ -68,10 +68,17 @@ async def execute(client, message, args, _):
 
         #attempt to load and play a video
         try:
-            #check to make sure client isn't playing
-            #if not client.player.is_playing():
-            await load_youtube_video(client, message, args)
-            await start_stream(client)
+            #check to see if client already has a player
+            if hasattr(client,"player"):
+                #check to make sure client isn't playing
+                logger.warning("Client already has a player.")
+                if not client.player.is_playing():
+                    logger.warning("Replacing existing player")
+                    await load_youtube_video(client, message, args)
+                    await start_stream(client)
+            else:
+                await load_youtube_video(client, message, args)
+                await start_stream(client)
 
         except AttributeError as e:
             logger.error("User not connected to voice channel.")
