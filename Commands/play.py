@@ -42,8 +42,8 @@ async def execute(client, message, args, _):
             await load_youtube_video(client, message, args)
             await start_stream(client)
 
-        except ClientException:
-            logger.error("User is already in a voice channel.")
+        #except discord.ClientException:
+        #    logger.error("Client is already in a voice channel.")
 
         except AttributeError:
             logger.error("User not connected to voice channel.")
@@ -52,10 +52,12 @@ async def execute(client, message, args, _):
         except utils.DownloadError:
             logger.error("Unable to download video")
             await client.send_message(message.channel, "Error: Invalid link.")
+            await client.voice.disconnect()
 
         except Exception as e:
             logger.error("An exception of type {} has occurred".format(type(e).__name__))
             await client.send_message(message.channel, "An unknown error has occurred.")
+            await client.voice.disconnect()
 
 async def connect_to_voice_channel(client,message):
     #find voice channel author is in
