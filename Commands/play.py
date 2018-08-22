@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import logging
-from youtube_dl import utils
+from youtube_dl.utils import ExtractorError, DownloadError, UnsupportedError
 
 logger = logging.getLogger("bullinsbot.play")
 
@@ -15,29 +15,53 @@ async def execute(client, message, args, _):
 
     if args == "pause":
         try:
-            await pause(client)
+            await pause(client, message)
         except AttributeError:
             logger.error("No stream player to pause.")
             await client.send_message(message.channel, "Error: No stream to pause.")
         except Exception as e:
             logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
             await client.send_message(message.channel, "An unknown error has occured")
 
     elif args == "resume":
         try:
-            await resume(client)
+            await resume(client, message)
         except AttributeError:
             logger.error("No stream player to resume.")
             await client.send_message(message.channel, "Error: No stream to resume.")
         except Exception as e:
             logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
+            await client.send_message(message.channel, "An unknown error has occured")
+
+    elif args == "stop":
+        try:
+            await stop(client, message)
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
+            await client.send_message(message.channel, "An unknown error has occured")
+
+    elif args.startswith("volume"):
+        try:
+            await set_volume(client, message, args[6:])
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
             await client.send_message(message.channel, "An unknown error has occured")
 
     else:
         try:
+            await connect_to_voice_channel(client, message)
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
+
+        try:
             #this is a video request; connect to channel if not already connected, load stream, and play
             #TODO: Check to see if client connected to a voice channel already
-            await connect_to_voice_channel(client, message)
+
             #TODO: check to see what kind of link is in args; right now assuming youtube
             await load_youtube_video(client, message, args)
             await start_stream(client)
@@ -49,7 +73,7 @@ async def execute(client, message, args, _):
             logger.error("User not connected to voice channel.")
             await client.send_message(message.channel, "Error: Requestor isn't in a voice channel.")
 
-        except utils.DownloadError:
+        except DownloadError:
             logger.error("Unable to download video")
             await client.send_message(message.channel, "Error: Invalid link.")
             await client.voice.disconnect()
@@ -77,18 +101,39 @@ async def load_youtube_video(client,message,args):
 async def start_stream(client):
     client.player.start()
 
-async def pause(client):
+async def pause(client, message):
     """Pause stream playback"""
     if client.player.is_playing():
-        await client.player.pause()
+        logger.info("Pausing playback")
+        client.player.pause()
         await client.send_message(message.channel, "Stream paused.")
     else:
         await client.send_message(message.channel, "Nothing is playing right now.")
 
-async def resume(client):
+async def resume(client, message):
     """Resume stream playback"""
     if client.player.is_playing():
         await client.send_message(message.channel, "Playback isn't currently paused.")
     else:
-        await client.player.resume()
+        logger.info("Resuming playback")
+        client.player.resume()
         await client.send_message(message.channel, "Stream resumed.")
+
+async def stop(client, message):
+    """Stops stream playback"""
+
+    logger.info("Stopping playback")
+    client.player.stop()
+    await client.send_message(message.channel, "Stream stopped.")
+    await client.voice.disconnect()
+
+async def set_volume(client, message, volume_string):
+    """Changes the volume on the video"""
+    #if volume_string.startswith('+'):
+    #    logger.info("attempting to relatively increase volume")
+    #elif volume_string.startswith('-'):
+    #    logger.info("attempting to relatively decrease volume")
+    #elif int(volume_string) >= 0 and int(volume_string) <= 100:
+    #    logger.info("attempting to manually set volume")
+    #else:
+    logger.info("current volume: %s", client.player.volume)
