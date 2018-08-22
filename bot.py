@@ -11,7 +11,7 @@ logger = logging.getLogger("bullinsbot")
 client = discord.Client()
 modules = {}
 
-invocation = "b! "
+client.invocation = "b! "
 
 
 @client.event
@@ -24,9 +24,9 @@ async def on_ready():
 @client.event
 async def on_message(message):
     # Check if incoming message is intended for this bot.
-    if message.content.startswith(invocation):
+    if message.content.startswith(client.invocation):
         # Consume the invocation.
-        message.content = message.content[len(invocation):]
+        message.content = message.content[len(client.invocation):]
 
         # Seperate the command from any additional arguments.
         try:
