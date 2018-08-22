@@ -46,7 +46,7 @@ async def execute(client, message, args, _):
 
     elif args.startswith("volume"):
         try:
-            await set_volume(client, message, args[6:])
+            await set_volume(client, message, args[7:])
         except Exception as e:
             logger.error("An exception of type {} has occurred".format(type(e).__name__))
             logger.error(e)
@@ -73,7 +73,7 @@ async def execute(client, message, args, _):
                 #check to make sure client isn't playing
                 logger.warning("Client already has a player.")
                 if not client.player.is_playing():
-                    logger.warning("Replacing existing player")
+                    logger.warning("Replacing existing player.")
                     await load_youtube_video(client, message, args)
                     await start_stream(client)
             else:
@@ -139,14 +139,53 @@ async def stop(client, message):
     await client.send_message(message.channel, "Stream stopped.")
     await client.voice.disconnect()
 
+def limit_volume(volume_level):
+    if volume_level > 1:
+        return 1
+    elif volume_level < 0:
+        return 0
+    else:
+        return volume_level
+
+async def adjust_volume(client, message, volume_string):
+
+    volume_adjustment = int(volume_string[1:])/100
+
+    logger.info("attempting to adjust volume by %s", volume_string)
+
+    if volume_string[0] == '+':
+        client.player.volume = limit_volume(client.player.volume + volume_adjustment)
+    else:
+        client.player.volume = limit_volume(client.player.volume - volume_adjustment)
+
+    logger.info("Volume adjusted to {:.0%}.".format(client.player.volume))
+    await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.player.volume))
+
 async def set_volume(client, message, volume_string):
     """Changes the volume on the video"""
-    if volume_string.startswith('+'):
-        logger.info("attempting to relatively increase volume")
-    elif volume_string.startswith('-'):
-        logger.info("attempting to relatively decrease volume")
-    #elif int(volume_string) >= 0 and int(volume_string) <= 100:
-    #    logger.info("attempting to manually set volume")
-    else:
-        logger.info("current volume: %s", client.player.volume)
-        await client.send_message(message.channel, "Song is currently playing at {}\%.".format(100 * client.player.volume))
+    volume_string = volume_string.replace(" ","")
+
+    try:
+        if not volume_string:
+            logger.info("current volume: %s", client.player.volume)
+            await client.send_message(message.channel, "Song is currently playing at {:.0%}.".format(client.player.volume))
+
+        elif volume_string[0] in ['+','-']:
+            await adjust_volume(client, message, volume_string)
+
+        else:
+            volume_adjustment = int(volume_string)/100
+            logger.info("attempting to manually set volume")
+            client.player.volume = limit_volume(volume_adjustment)
+            logger.info("Set volume to {:.0%}.".format(client.player.volume))
+            await client.send_message(message.channel, "Set volume to {:.0%}.".format(client.player.volume))
+
+    except ValueError:
+        logger.error("Attempted to adjust volume by something other than a number")
+        await client.send_message(message.channel, "Error: Invalid volume change")
+
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
+        await client.send_message(message.channel, "An unknown error has occurred.")
+        await client.voice.disconnect()
