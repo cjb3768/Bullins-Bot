@@ -2,6 +2,7 @@ import discord
 import asyncio
 import logging
 from youtube_dl.utils import ExtractorError, DownloadError, UnsupportedError
+from discord import ClientException
 
 logger = logging.getLogger("bullinsbot.play")
 
@@ -52,25 +53,29 @@ async def execute(client, message, args, _):
             await client.send_message(message.channel, "An unknown error has occured")
 
     else:
+        #this is a video request; connect to channel if not already connected, load stream, and play
+
+        #Attempt to connect to voice channel
         try:
             await connect_to_voice_channel(client, message)
+
+        except ClientException:
+            logger.warning("Client is already in a voice channel.")
+
         except Exception as e:
             logger.error("An exception of type {} has occurred".format(type(e).__name__))
             logger.error(e)
 
+        #attempt to load and play a video
         try:
-            #this is a video request; connect to channel if not already connected, load stream, and play
-            #TODO: Check to see if client connected to a voice channel already
-
-            #TODO: check to see what kind of link is in args; right now assuming youtube
+            #check to make sure client isn't playing
+            #if not client.player.is_playing():
             await load_youtube_video(client, message, args)
             await start_stream(client)
 
-        #except discord.ClientException:
-        #    logger.error("Client is already in a voice channel.")
-
-        except AttributeError:
+        except AttributeError as e:
             logger.error("User not connected to voice channel.")
+            logger.error(e)
             await client.send_message(message.channel, "Error: Requestor isn't in a voice channel.")
 
         except DownloadError:
@@ -96,7 +101,7 @@ async def connect_to_voice_channel(client,message):
 async def load_youtube_video(client,message,args):
     """Create a youtube download player to stream audio from a youtube video"""
     client.player = await client.voice.create_ytdl_player(args, after=client.voice.disconnect) #TODO: get the after function working
-    await client.send_message(message.channel, "Loaded \"{}\" by {}, as requested by {}".format(client.player.title, client.player.uploader, message.author.display_name))
+    await client.send_message(message.channel, "Playing \"{}\" by {}, as requested by {}".format(client.player.title, client.player.uploader, message.author.display_name))
 
 async def start_stream(client):
     client.player.start()
@@ -129,11 +134,12 @@ async def stop(client, message):
 
 async def set_volume(client, message, volume_string):
     """Changes the volume on the video"""
-    #if volume_string.startswith('+'):
-    #    logger.info("attempting to relatively increase volume")
-    #elif volume_string.startswith('-'):
-    #    logger.info("attempting to relatively decrease volume")
+    if volume_string.startswith('+'):
+        logger.info("attempting to relatively increase volume")
+    elif volume_string.startswith('-'):
+        logger.info("attempting to relatively decrease volume")
     #elif int(volume_string) >= 0 and int(volume_string) <= 100:
     #    logger.info("attempting to manually set volume")
-    #else:
-    logger.info("current volume: %s", client.player.volume)
+    else:
+        logger.info("current volume: %s", client.player.volume)
+        await client.send_message(message.channel, "Song is currently playing at {}\%.".format(100 * client.player.volume))
