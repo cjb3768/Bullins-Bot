@@ -63,11 +63,12 @@ def main():
     logger.info("Found %s commands.", len(commands))
 
     # Read in token info from bot_token.txt
-    token_file = open("bot_token.txt","r")
-    bot_login_token = token_file.read()
+    #token_file = open("bot_token.txt","r")
+    #bot_login_token = token_file.read()
 
     # Start the client and give it our token.
-    client.run(bot_login_token)
+    #client.run(bot_login_token)
+    client.run(os.environ["DISCORD_TOKEN"])
 
 
 if __name__ == "__main__":
