@@ -6,7 +6,10 @@ from discord import ClientException
 
 logger = logging.getLogger("bullinsbot.play")
 
-async def execute(client, message, args, _):
+def get_available_commands():
+    return {"play": execute}
+
+async def execute(client, message, instruction, **kwargs):
     """Stream from an online source back over a given voice channel
        Supported platforms will be added to this note as they are added
 
@@ -14,7 +17,7 @@ async def execute(client, message, args, _):
        Youtube videos
     """
 
-    if args == "pause":
+    if instruction[1] == "pause":
         try:
             await pause(client, message)
         except AttributeError:
@@ -25,7 +28,7 @@ async def execute(client, message, args, _):
             logger.error(e)
             await client.send_message(message.channel, "An unknown error has occured")
 
-    elif args == "resume":
+    elif instruction[1] == "resume":
         try:
             await resume(client, message)
         except AttributeError:
@@ -36,7 +39,7 @@ async def execute(client, message, args, _):
             logger.error(e)
             await client.send_message(message.channel, "An unknown error has occured")
 
-    elif args == "stop":
+    elif instruction[1] == "stop":
         try:
             await stop(client, message)
         except Exception as e:
@@ -44,9 +47,9 @@ async def execute(client, message, args, _):
             logger.error(e)
             await client.send_message(message.channel, "An unknown error has occured")
 
-    elif args.startswith("volume"):
+    elif instruction[1] == "volume":
         try:
-            await set_volume(client, message, args[7:])
+            await set_volume(client, message, "".join(instruction[2:]))
         except Exception as e:
             logger.error("An exception of type {} has occurred".format(type(e).__name__))
             logger.error(e)
@@ -74,10 +77,10 @@ async def execute(client, message, args, _):
                 logger.warning("Client already has a player.")
                 if not client.player.is_playing():
                     logger.warning("Replacing existing player.")
-                    await load_youtube_video(client, message, args)
+                    await load_youtube_video(client, message, instruction[1])
                     await start_stream(client)
             else:
-                await load_youtube_video(client, message, args)
+                await load_youtube_video(client, message, instruction[1])
                 await start_stream(client)
 
         except AttributeError as e:
@@ -163,7 +166,7 @@ async def adjust_volume(client, message, volume_string):
 
 async def set_volume(client, message, volume_string):
     """Changes the volume on the video"""
-    volume_string = volume_string.replace(" ","")
+    #volume_string = volume_string.replace(" ","")
 
     try:
         if not volume_string:
