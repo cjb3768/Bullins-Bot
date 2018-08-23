@@ -7,7 +7,7 @@ from discord import ClientException
 logger = logging.getLogger("bullinsbot.play")
 
 def get_available_commands():
-    return {"play": execute}
+    return {"play": execute, "pause": pause, "resume": resume, "stop": stop}
 
 async def execute(client, message, instruction, **kwargs):
     """Stream from an online source back over a given voice channel
@@ -17,86 +17,68 @@ async def execute(client, message, instruction, **kwargs):
        Youtube videos
     """
 
-    if instruction[1] == "pause":
-        try:
-            await pause(client, message)
-        except AttributeError:
-            logger.error("No stream player to pause.")
-            await client.send_message(message.channel, "Error: No stream to pause.")
-        except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-            await client.send_message(message.channel, "An unknown error has occured")
+    # elif instruction[1] == "resume":
+    #     try:
+    #         await resume(client, message)
+    #
+    # elif instruction[1] == "stop":
+    #     try:
+    #         await stop(client, message)
+    #     except Exception as e:
+    #         logger.error("An exception of type {} has occurred".format(type(e).__name__))
+    #         logger.error(e)
+    #         await client.send_message(message.channel, "An unknown error has occured")
+    #
+    # elif instruction[1] == "volume":
+    #     try:
+    #         await set_volume(client, message, "".join(instruction[2:]))
+    #     except Exception as e:
+    #         logger.error("An exception of type {} has occurred".format(type(e).__name__))
+    #         logger.error(e)
+    #         await client.send_message(message.channel, "An unknown error has occured")
 
-    elif instruction[1] == "resume":
-        try:
-            await resume(client, message)
-        except AttributeError:
-            logger.error("No stream player to resume.")
-            await client.send_message(message.channel, "Error: No stream to resume.")
-        except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-            await client.send_message(message.channel, "An unknown error has occured")
 
-    elif instruction[1] == "stop":
-        try:
-            await stop(client, message)
-        except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-            await client.send_message(message.channel, "An unknown error has occured")
-
-    elif instruction[1] == "volume":
-        try:
-            await set_volume(client, message, "".join(instruction[2:]))
-        except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-            await client.send_message(message.channel, "An unknown error has occured")
-
-    else:
         #this is a video request; connect to channel if not already connected, load stream, and play
 
-        #Attempt to connect to voice channel
-        try:
-            await connect_to_voice_channel(client, message)
+    #Attempt to connect to voice channel
+    try:
+        await connect_to_voice_channel(client, message)
 
-        except ClientException:
-            logger.warning("Client is already in a voice channel.")
+    except ClientException:
+        logger.warning("Client is already in a voice channel.")
 
-        except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
 
-        #attempt to load and play a video
-        try:
-            #check to see if client already has a player
-            if hasattr(client,"player"):
-                #check to make sure client isn't playing
-                logger.warning("Client already has a player.")
-                if not client.player.is_playing():
-                    logger.warning("Replacing existing player.")
-                    await load_youtube_video(client, message, instruction[1])
-                    await start_stream(client)
-            else:
+    #attempt to load and play a video
+    try:
+        #check to see if client already has a player
+        if hasattr(client,"player"):
+            #check to make sure client isn't playing
+            logger.warning("Client already has a player.")
+            if not client.player.is_playing():
+                logger.warning("Replacing existing player.")
                 await load_youtube_video(client, message, instruction[1])
                 await start_stream(client)
+        else:
+            await load_youtube_video(client, message, instruction[1])
+            await start_stream(client)
 
-        except AttributeError as e:
-            logger.error("User not connected to voice channel.")
-            logger.error(e)
-            await client.send_message(message.channel, "Error: Requestor isn't in a voice channel.")
+    except AttributeError as e:
+        logger.error("User not connected to voice channel.")
+        logger.error(e)
+        await client.send_message(message.channel, "Error: Requestor isn't in a voice channel.")
 
-        except DownloadError:
-            logger.error("Unable to download video")
-            await client.send_message(message.channel, "Error: Invalid link.")
-            await client.voice.disconnect()
+    except DownloadError:
+        logger.error("Unable to download video")
+        await client.send_message(message.channel, "Error: Invalid link.")
+        await client.voice.disconnect()
 
-        except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            await client.send_message(message.channel, "An unknown error has occurred.")
-            await client.voice.disconnect()
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        await client.send_message(message.channel, "An unknown error has occurred.")
+        await client.voice.disconnect()
 
 async def connect_to_voice_channel(client,message):
     #find voice channel author is in
@@ -116,31 +98,61 @@ async def load_youtube_video(client,message,args):
 async def start_stream(client):
     client.player.start()
 
-async def pause(client, message):
+async def pause(client, message, instruction, **kwargs):
     """Pause stream playback"""
-    if client.player.is_playing():
-        logger.info("Pausing playback")
-        client.player.pause()
-        await client.send_message(message.channel, "Stream paused.")
-    else:
-        await client.send_message(message.channel, "Nothing is playing right now.")
 
-async def resume(client, message):
+    try:
+        if client.player.is_playing():
+            logger.info("Pausing playback")
+            client.player.pause()
+            await client.send_message(message.channel, "Stream paused.")
+        else:
+            await client.send_message(message.channel, "Nothing is playing right now.")
+
+    except AttributeError:
+        logger.error("No stream player to pause.")
+        await client.send_message(message.channel, "Error: No stream to pause.")
+
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
+        await client.send_message(message.channel, "An unknown error has occured")
+
+async def resume(client, message, instruction, **kwargs):
     """Resume stream playback"""
-    if client.player.is_playing():
-        await client.send_message(message.channel, "Playback isn't currently paused.")
-    else:
-        logger.info("Resuming playback")
-        client.player.resume()
-        await client.send_message(message.channel, "Stream resumed.")
+    try:
+        if client.player.is_playing():
+            await client.send_message(message.channel, "Playback isn't currently paused.")
+        else:
+            logger.info("Resuming playback")
+            client.player.resume()
+            await client.send_message(message.channel, "Stream resumed.")
 
-async def stop(client, message):
+    except AttributeError:
+        logger.error("No stream player to resume.")
+        await client.send_message(message.channel, "Error: No stream to resume.")
+
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
+        await client.send_message(message.channel, "An unknown error has occured")
+
+async def stop(client, message, instruction, **kwargs):
     """Stops stream playback"""
+    try:
+        logger.info("Stopping playback")
+        client.player.stop()
+        await client.send_message(message.channel, "Stream stopped.")
+        await client.voice.disconnect()
 
-    logger.info("Stopping playback")
-    client.player.stop()
-    await client.send_message(message.channel, "Stream stopped.")
-    await client.voice.disconnect()
+    except AttributeError:
+        logger.error("No stream player to stop.")
+        await client.send_message(message.channel, "Error: No stream to stop.")
+
+    except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
+            await client.send_message(message.channel, "An unknown error has occured")
 
 def limit_volume(volume_level):
     if volume_level > 1:
