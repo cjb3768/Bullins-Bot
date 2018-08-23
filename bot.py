@@ -28,17 +28,24 @@ async def on_message(message):
         # Consume the invocation.
         message.content = message.content[len(client.invocation):]
 
-        # Tokenize the message contents
-        command = message.content.split(' ')
+        if message.content == "shutdown":
+            await client.logout()
+            logger.info("Logged out successfully.")
 
-        logger.info("Given command '{}' with args '{}'".format(command[0], command[1:]))
+        else:
+            # Tokenize the message contents
+            command = message.content.split(' ')
 
-        try:
-            # Attempt to execute the given command.
-            await modules[command[0]].execute(client, message, command, modules=modules)
-        except KeyError:
-            logger.error("Unrecognized command: %s", command)
-            #FIXME: Respond that the command is unrecognized and suggest checking 'help'
+            logger.info("Given command '{}' with args '{}'".format(command[0], command[1:]))
+
+            try:
+                # Attempt to execute the given command.
+                await modules[command[0]].execute(client, message, command, modules=modules)
+            except KeyError:
+                logger.error("Unrecognized command: %s", command)
+                #FIXME: Respond that the command is unrecognized and suggest checking 'help'
+            except Exception as e:
+                logger.error(e)
 
 
 def main():
