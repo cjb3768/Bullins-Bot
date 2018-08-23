@@ -59,10 +59,9 @@ def roll_dice(dice_string):
     for i in range(0,int(quantity)):
         roll_result = roll_die(size)
         dice_sum += roll_result
-        result_string = str(roll_result)
+        result_string += str(roll_result) + " + "
         #logger.info("Rolled a {}".format(result_string))
-        return (dice_sum, result_string)
-    return (dice_sum, result_string)
+    return (dice_sum, result_string[:-3])
 
 def roll_die(num_sides):
     """Roll a single die of num_sides sides"""
@@ -76,7 +75,7 @@ async def execute(client, message, instruction, **kwargs):
     """Roll a number of dice for the user, with modifiers, and return both the roll total and a string of individual roll results
        Supports rolls of the format 'xdy +/- m', where x is the number of rolls, y is the number of sides on the die, and m is a positive integer modifier to your roll
        Rolls and modifiers can be chained in any order. Do not use parentheses or negative numbers."""
-    #roll_result = sum_dice(args)
+    
     roll_result = eval_dice(''.join(instruction[1:]))
     logger.info("{} rolled a total of {} ({})".format(message.author, roll_result[0], roll_result[1]))
     await client.send_message(message.channel, "{}, you rolled a total of {} ({})".format(message.author.display_name, roll_result[0], roll_result[1]))
