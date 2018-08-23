@@ -69,11 +69,11 @@ def roll_mod(dice_string):
     """Return a dice roll modifier"""
     return (int(dice_string),dice_string)
 
-async def execute(client, message, args, _):
+async def execute(client, message, command, **kwargs):
     """Roll a number of dice for the user, with modifiers, and return both the roll total and a string of individual roll results
        Supports rolls of the format 'xdy +/- m', where x is the number of rolls, y is the number of sides on the die, and m is a positive integer modifier to your roll
        Rolls and modifiers can be chained in any order. Do not use parentheses or negative numbers."""
     #roll_result = sum_dice(args)
-    roll_result = eval_dice(args.replace(" ",""))
+    roll_result = eval_dice(''.join(command[1:]))
     logger.info("{} rolled a total of {} ({})".format(message.author, roll_result[0], roll_result[1]))
     await client.send_message(message.channel, "{}, you rolled a total of {} ({})".format(message.author.display_name, roll_result[0], roll_result[1]))

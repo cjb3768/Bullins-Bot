@@ -4,16 +4,23 @@ import logging
 
 logger = logging.getLogger("bullinsbot.help")
 
-async def execute(client, message, args, modules):
+async def execute(client, message, command, **kwargs):
     """Enumerate commands, or explain the functionality of specific command."""
 
-    if args:
-        logger.debug("User looking for spicific info about command %s.", args)
+    modules = kwargs['modules']
+
+    if len(command) > 2:
+        logger.warning("Unknown command '%s'!", command[1:])
+
+        await client.send_message(message.author, "Warning: Too many arguments.\n*help*: {}".format(modules['help'].execute.__doc__))
+
+    elif len(command) == 2:
+        logger.debug("User looking for specific info about command %s.", command[1])
 
         try:
-            await client.send_message(message.author, "*{}*: {}".format(args, modules[args].execute.__doc__))
+            await client.send_message(message.author, "*{}*: {}".format(command[1], modules[command[1]].execute.__doc__))
         except KeyError:
-            logger.warning("Unknown command '%s'!", args)
+            logger.warning("Unknown command '%s'!", command[1])
             #FIXME: Notify the user of the error.
 
     else:

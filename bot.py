@@ -28,17 +28,14 @@ async def on_message(message):
         # Consume the invocation.
         message.content = message.content[len(client.invocation):]
 
-        # Seperate the command from any additional arguments.
-        try:
-            command, args = message.content.split(' ', 1)
-        except ValueError:
-            command, args = message.content, ''
+        # Tokenize the message contents
+        command = message.content.split(' ')
 
-        logger.info("Given command '%s' with args '%s'", command, args)
+        logger.info("Given command '{}' with args '{}'".format(command[0], command[1:]))
 
         try:
             # Attempt to execute the given command.
-            await modules[command].execute(client, message, args, modules)
+            await modules[command[0]].execute(client, message, command, modules=modules)
         except KeyError:
             logger.error("Unrecognized command: %s", command)
             #FIXME: Respond that the command is unrecognized and suggest checking 'help'
