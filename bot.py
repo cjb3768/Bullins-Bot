@@ -9,7 +9,7 @@ import Commands
 ###########
 logger = logging.getLogger("bullinsbot")
 client = discord.Client()
-modules = {}
+commands = {}
 
 client.invocation = "b! "
 
@@ -34,16 +34,18 @@ async def on_message(message):
 
         else:
             # Tokenize the message contents
-            command = message.content.split(' ')
+            instructions = message.content.split(' ')
 
-            logger.info("Given command '{}' with args '{}'".format(command[0], command[1:]))
+            logger.info("Given instruction '{}' with args '{}'".format(instructions[0], instructions[1:]))
 
             try:
-                # Attempt to execute the given command.
-                await modules[command[0]].execute(client, message, command, modules=modules)
+                # Attempt to execute the given instruction.
+                await commands[instructions[0]](client, message, instructions, commands=commands)
+
             except KeyError:
-                logger.error("Unrecognized command: %s", command)
-                #FIXME: Respond that the command is unrecognized and suggest checking 'help'
+                logger.error("Unrecognized instruction: %s", instructions[0])
+                #FIXME: Respond that the instruction is unrecognized and suggest checking 'help'
+
             except Exception as e:
                 logger.error(e)
 
@@ -52,13 +54,13 @@ def main():
     # Set logging to output all messages INFO level or higher.
     logging.basicConfig(level=logging.INFO)
 
-    # Import all modules from the Commands package and categorize them.
+    # Import all commands from the Commands package and categorize them.
     prefix = Commands.__name__ + "."
     for importer, mod_name, ispkg in pkgutil.iter_modules(Commands.__path__, prefix):
-        sub_mod_name = mod_name.split(".", 1)[-1]
-        modules[sub_mod_name] = importer.find_module(mod_name).load_module(mod_name)
+        module = importer.find_module(mod_name).load_module(mod_name)
+        commands.update(module.get_available_commands())
 
-    logger.info("Found %s command modules.", len(modules))
+    logger.info("Found %s commands.", len(commands))
 
     # Read in token info from bot_token.txt
     token_file = open("bot_token.txt","r")
