@@ -14,3 +14,4 @@ Commands are prefaced by the invocation `b!`, for example:
 * `echo phrase` - Repeats 'phrase' in current chat.
 * `roll dice` - Randomly rolls dice with support for many different types and modifiers.
 * `play link` - Plays YouTube video in the voice chat you are currently in.
+* `clean [number]` - Scans 'number' messages from the current channel and deletes any bot requests and bot replies.
