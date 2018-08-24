@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "4d0c4ad8c80c3b47245c0e2c906b2af7ad248f575fd4a31a82e51415b80728cb"
+            "sha256": "01a25c08b99abd06379e963022e6132a36225c0095dc42d769ccb9501f4ea087"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -107,6 +107,13 @@
             ],
             "markers": "python_version >= '3.4.1'",
             "version": "==4.3.1"
+        },
+        "opuslib": {
+            "hashes": [
+                "sha256:2cb045e5b03e7fc50dfefe431e3404dddddbd8f5961c10c51e32dfb69a044c97"
+            ],
+            "index": "pypi",
+            "version": "==3.0.1"
         },
         "pycparser": {
             "hashes": [

@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 "discord.py" = {version = "*", extras = ["voice"]}
 youtube-dl = "*"
+opuslib = "*"
 
 [dev-packages]
 
