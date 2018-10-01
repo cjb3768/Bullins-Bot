@@ -6,6 +6,10 @@ from discord import ClientException
 
 logger = logging.getLogger("bullinsbot.play")
 
+logger.info("Attempting to load opus")
+discord.opus.load_opus
+logger.info("Opus loaded")
+
 def get_available_commands():
     return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume}
 
