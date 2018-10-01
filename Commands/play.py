@@ -1,13 +1,14 @@
 import discord
 import asyncio
 import logging
+from collections import deque
 from youtube_dl.utils import ExtractorError, DownloadError, UnsupportedError
 from discord import ClientException
 
 logger = logging.getLogger("bullinsbot.play")
 
 def get_available_commands():
-    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume}
+    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info}
 
 async def execute(client, message, instruction, **kwargs):
     """Stream from an online source back over a given voice channel
@@ -31,6 +32,10 @@ async def execute(client, message, instruction, **kwargs):
 
     #attempt to load and play a video
     try:
+        #check to see if client has a playback queue; if not, create one
+        if not hasattr(client,"playback_queue"):
+            client.playback_queue = deque()
+
         #check to see if client already has a player
         if hasattr(client,"player"):
             #check to make sure client isn't playing
@@ -38,9 +43,17 @@ async def execute(client, message, instruction, **kwargs):
             if not client.player.is_playing():
                 logger.warning("Replacing existing player.")
                 await load_youtube_video(client, message, instruction[1])
+                logger.info("Queue currently contains {} songs.".format(len(client.playback_queue)))
                 await start_stream(client)
+            #client is playing; log an error
+            else:
+                logger.warning("Existing player active.");
+                await load_youtube_video(client, message, instruction[1])
+                logger.info("Queue currently contains {} songs.".format(len(client.playback_queue)))
+
         else:
             await load_youtube_video(client, message, instruction[1])
+            logger.info("Queue currently contains {} songs.".format(len(client.playback_queue)))
             await start_stream(client)
 
     except AttributeError as e:
@@ -68,12 +81,26 @@ async def connect_to_voice_channel(client, message):
             client.voice = await client.join_voice_channel(channel)
 
 async def load_youtube_video(client, message, url):
-    """Create a youtube download player to stream audio from a youtube video"""
-    client.player = await client.voice.create_ytdl_player(url, after=client.voice.disconnect) #TODO: get the after function working
-    await client.send_message(message.channel, "Playing \"{}\" by {}, as requested by {}".format(client.player.title, client.player.uploader, message.author.display_name))
+    """Create a youtube download player to stream audio from a youtube video.
+       Loaded player is added to playback queue, and if there is not an active player, the new player is set as the client's active player."""
+    client.playback_queue.append(await client.voice.create_ytdl_player(url, after=client.voice.disconnect)) #TODO: get the after function working
+    #if the video just loaded into the queue is the only video in the queue, set its player as the active player
+    if (len(client.playback_queue) == 1):
+        client.player = client.playback_queue[0]
+    await client.send_message(message.channel, "Queued \"{}\" by {}, as requested by {}".format(client.playback_queue[-1].title, client.playback_queue[-1].uploader, message.author.display_name))
 
 async def start_stream(client):
     client.player.start()
+
+#async def advance_queue(client):
+
+
+async def queue_info(client, message, instruction, **kwargs):
+    """Reports a list of information about the songs currently in the playback queue."""
+    await client.send_message(message.channel, "The current playback queue contains the following {} songs:".format(len(client.playback_queue)))
+    for song in client.playback_queue:
+        await client.send_message(message.channel, "\"{}\" by {}".format(song.title, song.uploader))
+
 
 async def pause(client, message, instruction, **kwargs):
     """Pause stream playback"""
