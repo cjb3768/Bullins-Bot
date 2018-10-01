@@ -14,8 +14,7 @@ async def execute(client, message, instruction, **kwargs):
     """Stream from an online source back over a given voice channel
        Supported platforms will be added to this note as they are added
 
-       Currently supported:
-       Youtube videos
+       Currently supported formats can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
     """
     #this is a video request; connect to channel if not already connected, load stream, and play
 
@@ -83,7 +82,7 @@ async def connect_to_voice_channel(client, message):
 async def load_youtube_video(client, message, url):
     """Create a youtube download player to stream audio from a youtube video.
        Loaded player is added to playback queue, and if there is not an active player, the new player is set as the client's active player."""
-    client.playback_queue.append(await client.voice.create_ytdl_player(url, after=client.voice.disconnect)) #TODO: get the after function working
+    client.playback_queue.append(await client.voice.create_ytdl_player(url, after=lambda: advance_queue(client, message))) #TODO: get the after function working
     #if the video just loaded into the queue is the only video in the queue, set its player as the active player
     if (len(client.playback_queue) == 1):
         client.player = client.playback_queue[0]
@@ -92,15 +91,59 @@ async def load_youtube_video(client, message, url):
 async def start_stream(client):
     client.player.start()
 
-#async def advance_queue(client):
+def advance_queue(client, message):
+    # there are additional songs in the queue; move to the next one
+    if (len(client.playback_queue) > 1):
+        #TODO add a check here to see if our queue is on repeat
+        # if repeat is not set, pop old song out of the queue and prep next one
+        client.playback_queue.popleft()
+        client.player = client.playback_queue[0]
 
+        next_song_message = client.send_message(message.channel, "Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
+        logger.info("Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
+        message_future = asyncio.run_coroutine_threadsafe(next_song_message, client.loop)
+
+        try:
+            message_future.result()
+        except Exception as e:
+            # an error occurred
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
+
+        queue_coroutine = start_stream(client)
+    # the queue only had one song in it
+    else:
+        #TODO add a check here to see if our queue is on repeat
+        next_song_message = client.send_message(message.channel, "Queue empty. Disconnecting from voice channel.")
+        logger.info("Queue empty. Disconnecting from voice channel.")
+        message_future = asyncio.run_coroutine_threadsafe(next_song_message, client.loop)
+
+        try:
+            message_future.result()
+        except Exception as e:
+            # an error occurred
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
+
+        client.playback_queue.clear()
+        queue_coroutine = client.voice.disconnect()
+
+    # run the assigned coroutine
+    queue_future = asyncio.run_coroutine_threadsafe(queue_coroutine, client.loop)
+
+    try:
+        queue_future.result()
+    except Exception as e:
+        # an error occurred
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
 
 async def queue_info(client, message, instruction, **kwargs):
     """Reports a list of information about the songs currently in the playback queue."""
+    #TODO- check to make sure there is a queue to look through
     await client.send_message(message.channel, "The current playback queue contains the following {} songs:".format(len(client.playback_queue)))
     for song in client.playback_queue:
         await client.send_message(message.channel, "\"{}\" by {}".format(song.title, song.uploader))
-
 
 async def pause(client, message, instruction, **kwargs):
     """Pause stream playback"""
