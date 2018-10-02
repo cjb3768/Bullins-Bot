@@ -8,7 +8,7 @@ from discord import ClientException
 logger = logging.getLogger("bullinsbot.play")
 
 def get_available_commands():
-    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info}
+    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode}
 
 async def execute(client, message, instruction, **kwargs):
     """Stream from an online source back over a given voice channel
@@ -34,6 +34,8 @@ async def execute(client, message, instruction, **kwargs):
         #check to see if client has a playback queue; if not, create one
         if not hasattr(client,"playback_queue"):
             client.playback_queue = deque()
+            # default repeat mode to off
+            client.repeat_mode = "off"
 
         #check to see if client already has a player
         if hasattr(client,"player"):
@@ -90,53 +92,6 @@ async def load_youtube_video(client, message, url):
 
 async def start_stream(client):
     client.player.start()
-
-def advance_queue(client, message):
-    # there are additional songs in the queue; move to the next one
-    if (len(client.playback_queue) > 1):
-        #TODO add a check here to see if our queue is on repeat
-        # if repeat is not set, pop old song out of the queue and prep next one
-        client.playback_queue.popleft()
-        client.player = client.playback_queue[0]
-
-        next_song_message = client.send_message(message.channel, "Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
-        logger.info("Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
-        message_future = asyncio.run_coroutine_threadsafe(next_song_message, client.loop)
-
-        try:
-            message_future.result()
-        except Exception as e:
-            # an error occurred
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-
-        queue_coroutine = start_stream(client)
-    # the queue only had one song in it
-    else:
-        #TODO add a check here to see if our queue is on repeat
-        next_song_message = client.send_message(message.channel, "Queue empty. Disconnecting from voice channel.")
-        logger.info("Queue empty. Disconnecting from voice channel.")
-        message_future = asyncio.run_coroutine_threadsafe(next_song_message, client.loop)
-
-        try:
-            message_future.result()
-        except Exception as e:
-            # an error occurred
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-
-        client.playback_queue.clear()
-        queue_coroutine = client.voice.disconnect()
-
-    # run the assigned coroutine
-    queue_future = asyncio.run_coroutine_threadsafe(queue_coroutine, client.loop)
-
-    try:
-        queue_future.result()
-    except Exception as e:
-        # an error occurred
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
-        logger.error(e)
 
 async def queue_info(client, message, instruction, **kwargs):
     """Reports a list of information about the songs currently in the playback queue."""
@@ -211,7 +166,7 @@ def limit_volume(volume_level):
 
 async def adjust_volume(client, message, instruction):
 
-    #handle ddifferences in input between "volume +/- x" and "volume +x/-x"
+    #handle differences in input between "volume +/- x" and "volume +x/-x"
     if len(instruction) == 2:
         volume_adjustment = int(instruction[1][1:])/100
     else:
@@ -254,3 +209,90 @@ async def set_volume(client, message, instruction, **kwargs):
         logger.error(e)
         await client.send_message(message.channel, "An unknown error has occurred.")
         await client.voice.disconnect()
+
+
+def advance_queue(client, message):
+    # there are additional songs in the queue; move to the next one
+    if (len(client.playback_queue) > 1):
+        # if repeat is not set, pop old song out of the queue and prep next one
+        if client.repeat_mode == "off":
+            client.playback_queue.popleft()
+            client.player = client.playback_queue[0]
+
+        # else if repeat is set to all, rotate queue to the left once
+        elif client.repeat_mode == "all":
+            client.playback_queue.rotate(-1)
+            client.player = client.playback_queue[0]
+
+        # else repeat is set to current; do nothing (we can just play the song again)
+        else:
+            pass
+
+        next_song_message = client.send_message(message.channel, "Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
+        logger.info("Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
+
+        queue_coroutine = start_stream(client)
+
+    # the queue only had one song in it
+    else:
+        # repeat mode is off, meaning updating the queue emtpies it. Clear the queue, and disconnect.
+        if client.repeat_mode == "off":
+            next_song_message = client.send_message(message.channel, "Queue empty. Disconnecting from voice channel.")
+            logger.info("Queue empty. Disconnecting from voice channel.")
+
+            client.playback_queue.clear()
+            queue_coroutine = client.voice.disconnect()
+
+        # either repeat is set to "current" or "all;" since our queue is one song long, both behave the same
+        else:
+            next_song_message = client.send_message(message.channel, "Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
+            logger.info("Now playing: \"{}\" by {}".format(client.player.title, client.player.uploader))
+
+            queue_coroutine = start_stream(client)
+
+    # send a message associated with the update to the queue.
+    message_future = asyncio.run_coroutine_threadsafe(next_song_message, client.loop)
+
+    try:
+        message_future.result()
+    except Exception as e:
+        # an error occurred
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
+
+    # run the assigned queue coroutine
+    queue_future = asyncio.run_coroutine_threadsafe(queue_coroutine, client.loop)
+
+    try:
+        queue_future.result()
+    except Exception as e:
+        # an error occurred
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
+
+
+async def set_repeat_mode(client, message, instruction, **kwargs):
+    """Sets the repeat mode for the playback queue.
+       Available options:
+       "all" - set repeat to loop entire queue
+       "current" - set repeat to loop current song only
+       "off" - turn off repeat
+       nothing - report repeat mode"""
+
+    try:
+        if len(instruction) == 1:
+            logger.info("Repeat mode: {}".format(client.repeat_mode))
+            await client.send_message(message.channel, "Repeat mode: {}".format(client.repeat_mode))
+
+        elif instruction[1] in ["all", "current", "off"]:
+            client.repeat_mode = instruction[1]
+            logger.info("Setting repeat mode to \"{}\".".format(instruction[1]))
+            await client.send_message(message.channel, "Setting repeat mode to \"{}\".".format(instruction[1]))
+
+        else:
+            logger.error("Invalid repeat mode.")
+            await client.send_message(message.channel, "Invalid repeat mode setting. Please choose between \"all\", \"current\", or \"off\".")
+
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
