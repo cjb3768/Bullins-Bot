@@ -52,7 +52,7 @@ class song_queue:
         logger.info("Creating YTDL")
         ydl = youtube_dl.YoutubeDL(opts)
         logger.info("Creating YTDL function")
-        func = functools.partial(ydl.extract_info, url, download=False)
+        func = functools.partial(ydl.extract_info, url, download=True)
         logger.info("Running YTDL function")
         info = yield from self.voice_channel.loop.run_in_executor(None, func)
         if "entries" in info:
@@ -61,6 +61,7 @@ class song_queue:
         logger.info('playing URL {}'.format(url))
         download_url = info['url']
         player = self.voice_channel.create_ffmpeg_player(download_url, **kwargs)
+        #player = self.voice_channel.create_ffmpeg_player(info['_filename'], **kwargs)
 
         # set the dynamic attributes from the info extraction
         player.download_url = download_url
@@ -93,22 +94,19 @@ class song_queue:
         player.upload_date = date
         return player
 
-    async def add_song(self, client, message, url):
+    async def add_song(self, client, message, url, append_right):
         """Create a new song and add it to playback_queue"""
-        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download-archive": "archive.txt"}, after=lambda: self.advance_queue(client, message)))
-        self.playback_queue.append(new_song)
+        #new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download-archive": "archive.txt"}, after=lambda: self.advance_queue(client, message)))
+        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download_archive": "Cache\\archive.txt","cachedir":"Cache", "outtmpl":"Cache\%(title)s-%(id)s.%(ext)s", "writeinfojson":"true", "loadinfojson":"true"}, after=lambda: self.advance_queue(client, message)))
+        if append_right:
+            self.playback_queue.append(new_song)
+        else:
         if self.active_player == None:
             self.active_player = self.playback_queue[0].player
         await client.send_message(message.channel, "Queued {}".format(self.playback_queue[-1]))
 
     async def add_song_left(self, client, message, url):
         """Create a new song and add it to playback_queue"""
-        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download-archive": "archive.txt"}, after=lambda: self.advance_queue(client, message)))
-        self.playback_queue.appendleft(new_song)
-        if self.active_player == None:
-            self.active_player = self.playback_queue[0].player
-        await client.send_message(message.channel, "Queued {}".format(self.playback_queue[0]))
-
     def advance_queue(self, client, message):
 
         if not self.play_status == "stopped":
@@ -136,11 +134,11 @@ class song_queue:
                 # else repeat is set to all; insert a duplicate of the current song into the queue
                 elif self.repeat_mode == "all":
                     logger.info("Repeat set to all, loading new copy of current player")
-                    repeat_coroutine = self.add_song(client, message, self.active_player.url)
+                    repeat_coroutine = self.add_song(client, message, self.active_player.url, True)
 
                 else:
                     logger.info("Repeat set to current, loading new copy of current player")
-                    repeat_coroutine = self.add_song_left(client, message, self.active_player.url)
+                    repeat_coroutine = self.add_song(client, message, self.active_player.url, False)
 
             # the queue only had one song in it
             else:
@@ -156,7 +154,7 @@ class song_queue:
                 # either repeat is set to "current" or "all;" since our queue is one song long, both behave the same
                 else:
                     logger.info("Repeat set to either current or all, loading new copy of current player")
-                    repeat_coroutine = self.add_song(client, message, self.active_player.url)
+                    repeat_coroutine = self.add_song(client, message, self.active_player.url, True)
 
             # handle repeat coroutine for cases where repeat is not off
             if repeat_coroutine is not None:
@@ -166,7 +164,7 @@ class song_queue:
                 try:
                     logger.debug("Checking repeat_future")
                     repeat_future.result()
-                    
+
                     logger.info("Queueing up next track.")
                     self.active_player = self.playback_queue[0].player
 
@@ -229,17 +227,17 @@ async def execute(client, message, instruction, **kwargs):
             logger.warning("Client already has a player.")
             if not client.song_queue.active_player.is_playing():
                 logger.warning("Replacing existing player.")
-                await client.song_queue.add_song(client, message, instruction[1])
+                await client.song_queue.add_song(client, message, instruction[1], True)
                 logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
                 client.song_queue.active_player.start()
             #client is playing; log an error
             else:
                 logger.warning("Existing player active.");
-                await client.song_queue.add_song(client, message, instruction[1])
+                await client.song_queue.add_song(client, message, instruction[1], True)
                 logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
 
         else:
-            await client.song_queue.add_song(client, message, instruction[1])
+            await client.song_queue.add_song(client, message, instruction[1], True)
             logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
             #await start_stream(client)
             client.song_queue.active_player.start()
@@ -417,3 +415,11 @@ async def set_repeat_mode(client, message, instruction, **kwargs):
         logger.error(e)
 
 async def skip_track(client, message, instruction, **kwargs):
+
+    if message.author == client.song_queue.playback_queue[0].requester:
+        message_string = "Song skip requested by song requestor. Playing next song."
+    else:
+        message_string = "Song skip requested. Playing next song."
+    logger.info(message_string)
+    await client.send_message(message.channel, message_string)
+    client.song_queue.active_player.stop()
