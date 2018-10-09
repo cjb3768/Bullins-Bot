@@ -14,6 +14,7 @@ logger = logging.getLogger("bullinsbot.play")
 def get_available_commands():
     return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode, "skip":skip_track}
 
+
 class song_entry:
     def __init__(self, message, player):
         self.requester = message.author
@@ -22,6 +23,7 @@ class song_entry:
 
     def __str__(self):
         return "\"{}\" by {}, requested by {}".format(self.player.title, self.player.uploader, self.requester.display_name)
+
 
 class song_queue:
     def __init__(self, client):
@@ -96,8 +98,7 @@ class song_queue:
 
     async def add_song(self, client, message, url, append_right):
         """Create a new song and add it to playback_queue"""
-        #new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download-archive": "archive.txt"}, after=lambda: self.advance_queue(client, message)))
-        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download_archive": "Cache\\archive.txt","cachedir":"Cache", "outtmpl":"Cache\%(title)s-%(id)s.%(ext)s", "writeinfojson":"true", "loadinfojson":"true"}, after=lambda: self.advance_queue(client, message)))
+        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download_archive":"Cache\\archive.txt","cachedir":"Cache", "outtmpl":"Cache\%(title)s-%(id)s.%(ext)s", "writeinfojson":"true", "loadinfojson":"true"}, after=lambda: self.advance_queue(client, message)))
         if append_right:
             self.playback_queue.append(new_song)
         else:
@@ -258,6 +259,7 @@ async def execute(client, message, instruction, **kwargs):
         logger.error(e)
         await client.voice.disconnect()
 
+
 async def connect_to_voice_channel(client, message):
     #find voice channel author is in
     logger.info(message.server.channels)
@@ -267,11 +269,16 @@ async def connect_to_voice_channel(client, message):
             logger.info("{} is in voice channel {}. Joining.".format(message.author.display_name, channel.name))
             client.voice = await client.join_voice_channel(channel)
 
+
 async def queue_info(client, message, instruction, **kwargs):
     """Reports a list of information about the songs currently in the playback queue."""
-    await client.send_message(message.channel, "The current playback queue contains the following {} songs:".format(len(client.playback_queue)))
-    for song in client.playback_queue:
-        await client.send_message(message.channel, "\"{}\" by {}".format(song.title, song.uploader))
+    message_string = "The current playback queue contains the following {} song(s):".format(len(client.song_queue.playback_queue))
+    logger.info(message_string)
+    await client.send_message(message.channel, message_string)
+    for song in client.song_queue.playback_queue:
+        logger.info(song)
+        await client.send_message(message.channel, song)
+
 
 async def pause(client, message, instruction, **kwargs):
     """Pause stream playback"""
@@ -293,6 +300,7 @@ async def pause(client, message, instruction, **kwargs):
         logger.error(e)
         await client.send_message(message.channel, "An unknown error has occured")
 
+
 async def resume(client, message, instruction, **kwargs):
     """Resume stream playback"""
     try:
@@ -311,6 +319,7 @@ async def resume(client, message, instruction, **kwargs):
         logger.error("An exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
         await client.send_message(message.channel, "An unknown error has occured")
+
 
 async def stop(client, message, instruction, **kwargs):
     """Stops stream playback"""
@@ -331,6 +340,7 @@ async def stop(client, message, instruction, **kwargs):
             logger.error(e)
             await client.send_message(message.channel, "An unknown error has occured")
 
+
 def limit_volume(volume_level):
     if volume_level > 1:
         return 1
@@ -338,6 +348,7 @@ def limit_volume(volume_level):
         return 0
     else:
         return volume_level
+
 
 async def adjust_volume(client, message, instruction):
 
@@ -356,6 +367,7 @@ async def adjust_volume(client, message, instruction):
 
     logger.info("Volume adjusted to {:.0%}.".format(client.song_queue.active_player.volume))
     await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.song_queue.active_player.volume))
+
 
 async def set_volume(client, message, instruction, **kwargs):
     """Reports or allows for manual setting or adjustment of the volume of the active stream."""
@@ -385,6 +397,7 @@ async def set_volume(client, message, instruction, **kwargs):
         await client.send_message(message.channel, "An unknown error has occurred.")
         await client.voice.disconnect()
 
+
 async def set_repeat_mode(client, message, instruction, **kwargs):
     """Sets the repeat mode for the playback queue.
        Available options:
@@ -413,8 +426,11 @@ async def set_repeat_mode(client, message, instruction, **kwargs):
         logger.error("An exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
 
-async def skip_track(client, message, instruction, **kwargs):
 
+async def skip_track(client, message, instruction, **kwargs):
+    """Skips the current track in the song queue.
+
+    Note: Skip will not proceed through the queue if repeat mode is set to 'current.'"""
     if message.author == client.song_queue.playback_queue[0].requester:
         message_string = "Song skip requested by song requestor. Playing next song."
     else:
