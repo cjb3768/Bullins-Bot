@@ -12,7 +12,7 @@ from discord import ClientException
 logger = logging.getLogger("bullinsbot.play")
 
 def get_available_commands():
-    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode}
+    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode, "skip":skip_track}
 
 class song_entry:
     def __init__(self, message, player):
@@ -101,12 +101,11 @@ class song_queue:
         if append_right:
             self.playback_queue.append(new_song)
         else:
+            self.playback_queue.appendleft(new_song)
         if self.active_player == None:
             self.active_player = self.playback_queue[0].player
         await client.send_message(message.channel, "Queued {}".format(self.playback_queue[-1]))
 
-    async def add_song_left(self, client, message, url):
-        """Create a new song and add it to playback_queue"""
     def advance_queue(self, client, message):
 
         if not self.play_status == "stopped":
