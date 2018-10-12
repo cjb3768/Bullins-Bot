@@ -2,13 +2,18 @@ import discord
 import asyncio
 import logging
 
+###########
+# GLOBALS #
+###########
 logger = logging.getLogger("bullinsbot.clean")
+
 
 def get_available_commands():
     return {"clean": execute}
 
+
 async def execute(client, message, instruction, **kwargs):
-    """Deletes a number of past bot commands and replies from requested channel"""
+    """Searches through a number of past bot commands and replies from requested channel and deletes them."""
     def bot_related(m):
         return m.content.startswith(client.invocation) or m.author == client.user
 

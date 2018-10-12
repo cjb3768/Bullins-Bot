@@ -2,10 +2,15 @@ import discord
 import asyncio
 import logging
 
+###########
+# GLOBALS #
+###########
 logger = logging.getLogger("bullinsbot.help")
+
 
 def get_available_commands():
     return {"help": execute}
+
 
 async def execute(client, message, instruction, **kwargs):
     """Enumerate commands, or explain the functionality of specific command."""
@@ -29,7 +34,7 @@ async def execute(client, message, instruction, **kwargs):
     else:
         logger.debug("User looking for general help.")
 
-        # Build a sting of a list of commands.
+        # Build a string of a list of commands.
         command_list = '*\n*'.join(commands)
 
         # Build a string to display.
