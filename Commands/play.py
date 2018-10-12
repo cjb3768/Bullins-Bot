@@ -51,14 +51,14 @@ class song_cache:
         return len(self.data)
 
 
-class song_queue:
+class music_class:
     def __init__(self, client):
         self.playback_queue = deque()
-        self.play_status = "inactive"
+        self.status = "inactive"
         self.repeat_mode = "off"
         self.voice_channel = client.voice
         self.active_player = None
-        self.cache = song_cache()
+        self.cache = client.song_cache
 
 
     def __len__(self):
@@ -93,9 +93,9 @@ class song_queue:
 
             logger.info("Adding song to cache.")
             self.cache.cache_song(url, info)
-            logger.info(self.cache.data.keys())
+            logger.debug(self.cache.data.keys())
             #logger.info(self.cache.data[url])
-            logger.info(info.keys())
+            logger.debug(info.keys())
             #player = self.voice_channel.create_ffmpeg_player(info['_filename'], **kwargs)
 
         else:
@@ -148,12 +148,12 @@ class song_queue:
             self.playback_queue.appendleft(new_song)
         if self.active_player == None:
             self.active_player = self.playback_queue[0].player
-        await client.send_message(message.channel, "Queued {}".format(self.playback_queue[-1]))
+        await client.send_message(message.channel, "Queued {}".format(new_song))
 
 
     def advance_queue(self, client, message):
 
-        if not self.play_status == "inactive":
+        if not self.status == "inactive":
             logger.info("Advancing queue.")
             logger.debug("Playback_queue length = {}, repeat_mode = {}".format(len(self.playback_queue),self.repeat_mode))
 
@@ -193,6 +193,8 @@ class song_queue:
                     next_song_message = client.send_message(message.channel, "Queue empty. Disconnecting from voice channel.")
                     logger.info("Queue empty. Disconnecting from voice channel.")
 
+                    #self.reset_queue()
+
                     queue_coroutine = self.voice_channel.disconnect()
 
                 # either repeat is set to "current" or "all;" since our queue is one song long, both behave the same
@@ -201,7 +203,7 @@ class song_queue:
                     repeat_coroutine = self.add_song(client, message, self.active_player.url, True)
 
             # handle repeat coroutine for cases where repeat is not off
-            if repeat_coroutine is not None:
+            if not repeat_coroutine == None:
                 logger.debug("Assigning repeat_future")
                 repeat_future = asyncio.run_coroutine_threadsafe(repeat_coroutine, client.loop)
 
@@ -243,6 +245,17 @@ class song_queue:
                 logger.error(e)
 
 
+    def reset_queue(self, keep_cache):
+        self.active_player = None
+        self.playback_queue.clear()
+        self.status = "inactive"
+        self.repeat_mode = "off"
+
+
+    def set_status(self, new_status):
+        self.status = new_status
+
+
 async def execute(client, message, instruction, **kwargs):
     """Stream from an online source back over a given voice channel.
        Supported platforms will be added to this note as they are added.
@@ -254,7 +267,10 @@ async def execute(client, message, instruction, **kwargs):
     #Attempt to connect to voice channel
     try:
         await connect_to_voice_channel(client, message)
-        client.song_queue = song_queue(client)
+        if not hasattr(client, 'song_cache'):
+            client.song_cache = song_cache()
+
+        client.music = music_class(client)
 
     except ClientException:
         logger.warning("Client is already in a voice channel.")
@@ -263,28 +279,34 @@ async def execute(client, message, instruction, **kwargs):
         logger.error("An exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
 
+
     #attempt to load and play a video
     try:
-        #check to see if client already has a player
-        if client.song_queue.active_player is not None:
-            #check to make sure client isn't playing TODO: Get working when stream is paused (stream isn't playing, but has started before, leading to errors)
-            logger.warning("Client already has a player.")
-            if not client.song_queue.active_player.is_playing():
-                logger.warning("Replacing existing player.")
-                await client.song_queue.add_song(client, message, instruction[1], True)
-                logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
-                client.song_queue.active_player.start()
-            #client is playing; log an error
-            else:
-                logger.warning("Existing player active.");
-                await client.song_queue.add_song(client, message, instruction[1], True)
-                logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
+        #check to see if the music class has a player running already
+        if client.music.active_player == None:
+            #there isn't an active player; add a song and start playing.
+            logger.info("No active player was found. Adding song.")
+            await client.music.add_song(client, message, instruction[1], True)
+            logger.info("Queue currently contains {} songs.".format(len(client.music)))
+            logger.info("Playing song.")
+
+
+            client.music.active_player.start()
+            client.music.set_status("playing")
 
         else:
-            await client.song_queue.add_song(client, message, instruction[1], True)
-            logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
-            client.song_queue.active_player.start()
+            #there is an active player
+            logger.warning("Existing player found. Adding song to queue.")
+            if client.music.status in ["playing","paused"]:
+                #a song is currently playing or paused; add track to back of queue_info
+                await client.music.add_song(client, message, instruction[1], True)
+                logger.info("Queue currently contains {} songs.".format(len(client.music)))
 
+            else:
+                #this is a sanity check to make sure I'm updating the status flag right; if this calls, we have a problem
+                logger.error("You shouldn't be seeing this.")
+
+    #TODO: make a function to handle shutdown on errors in a more uniform way
     except AttributeError as e:
         logger.error("User not connected to voice channel.")
         logger.error(e)
@@ -305,7 +327,7 @@ async def execute(client, message, instruction, **kwargs):
 
 async def connect_to_voice_channel(client, message):
     #find voice channel author is in
-    logger.info(message.server.channels)
+    logger.debug(message.server.channels)
 
     for channel in message.server.channels:
         if message.author in channel.voice_members:
@@ -315,10 +337,10 @@ async def connect_to_voice_channel(client, message):
 
 async def queue_info(client, message, instruction, **kwargs):
     """Reports a list of information about the songs currently in the playback queue."""
-    message_string = "The current playback queue contains the following {} song(s):".format(len(client.song_queue.playback_queue))
+    message_string = "The current playback queue contains the following {} song(s):".format(len(client.music.playback_queue))
     logger.info(message_string)
     await client.send_message(message.channel, message_string)
-    for song in client.song_queue.playback_queue:
+    for song in client.music.playback_queue:
         logger.info(song)
         await client.send_message(message.channel, song)
 
@@ -327,9 +349,10 @@ async def pause(client, message, instruction, **kwargs):
     """Pause stream playback"""
 
     try:
-        if client.song_queue.active_player.is_playing():
+        if client.music.status == "playing":
             logger.info("Pausing playback")
-            client.song_queue.active_player.pause()
+            client.music.active_player.pause()
+            client.music.set_status("paused")
             await client.send_message(message.channel, "Stream paused.")
         else:
             await client.send_message(message.channel, "Nothing is playing right now.")
@@ -347,12 +370,14 @@ async def pause(client, message, instruction, **kwargs):
 async def resume(client, message, instruction, **kwargs):
     """Resume stream playback"""
     try:
-        if client.song_queue.active_player.is_playing():
-            await client.send_message(message.channel, "Playback isn't currently paused.")
-        else:
+        if client.music.status == "paused":
             logger.info("Resuming playback")
-            client.song_queue.active_player.resume()
+            client.music.set_status("playing")
+            client.music.active_player.resume()
             await client.send_message(message.channel, "Stream resumed.")
+
+        else:
+            await client.send_message(message.channel, "Playback isn't currently paused.")
 
     except AttributeError:
         logger.error("No stream player to resume.")
@@ -368,10 +393,11 @@ async def stop(client, message, instruction, **kwargs):
     """Stops stream playback"""
     try:
         logger.info("Stopping playback")
-        client.song_queue.play_status = "stopped"
-        client.song_queue.active_player.stop()
+        client.music.set_status("inactive")
+        client.music.active_player.stop()
+        #client.music.reset_queue()
+
         await client.send_message(message.channel, "Stream stopped.")
-        client.song_queue.playback_queue.clear()
         await client.voice.disconnect()
 
     except AttributeError:
@@ -379,9 +405,9 @@ async def stop(client, message, instruction, **kwargs):
         await client.send_message(message.channel, "Error: No stream to stop.")
 
     except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
-            logger.error(e)
-            await client.send_message(message.channel, "An unknown error has occured")
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
+        await client.send_message(message.channel, "An unknown error has occured")
 
 
 def limit_volume(volume_level):
@@ -404,12 +430,12 @@ async def adjust_volume(client, message, instruction):
     logger.info("attempting to adjust volume by %s", volume_adjustment)
 
     if instruction[1].startswith('+'):
-        client.song_queue.active_player.volume = limit_volume(client.song_queue.active_player.volume + volume_adjustment)
+        client.music.active_player.volume = limit_volume(client.music.active_player.volume + volume_adjustment)
     else:
-        client.song_queue.active_player.volume = limit_volume(client.song_queue.active_player.volume - volume_adjustment)
+        client.music.active_player.volume = limit_volume(client.music.active_player.volume - volume_adjustment)
 
-    logger.info("Volume adjusted to {:.0%}.".format(client.song_queue.active_player.volume))
-    await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.song_queue.active_player.volume))
+    logger.info("Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
+    await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
 
 
 async def set_volume(client, message, instruction, **kwargs):
@@ -417,8 +443,8 @@ async def set_volume(client, message, instruction, **kwargs):
 
     try:
         if len(instruction) == 1:
-            logger.info("current volume: %s", client.song_queue.active_player.volume)
-            await client.send_message(message.channel, "Song is currently playing at {:.0%}.".format(client.song_queue.active_player.volume))
+            logger.info("current volume: %s", client.music.active_player.volume)
+            await client.send_message(message.channel, "Song is currently playing at {:.0%}.".format(client.music.active_player.volume))
 
         elif instruction[1][0] in ['+','-']:
             await adjust_volume(client, message, instruction)
@@ -426,9 +452,9 @@ async def set_volume(client, message, instruction, **kwargs):
         else:
             volume_adjustment = int(instruction[1])/100
             logger.info("attempting to manually set volume")
-            client.song_queue.active_player.volume = limit_volume(volume_adjustment)
-            logger.info("Set volume to {:.0%}.".format(client.song_queue.active_player.volume))
-            await client.send_message(message.channel, "Set volume to {:.0%}.".format(client.song_queue.active_player.volume))
+            client.music.active_player.volume = limit_volume(volume_adjustment)
+            logger.info("Set volume to {:.0%}.".format(client.music.active_player.volume))
+            await client.send_message(message.channel, "Set volume to {:.0%}.".format(client.music.active_player.volume))
 
     except ValueError:
         logger.error("Attempted to adjust volume by something other than a number")
@@ -451,12 +477,12 @@ async def set_repeat_mode(client, message, instruction, **kwargs):
 
     try:
         if len(instruction) == 1:
-            message_string = "Repeat mode: {}".format(client.song_queue.repeat_mode)
+            message_string = "Repeat mode: {}".format(client.music.repeat_mode)
             logger.info(message_string)
             await client.send_message(message.channel, message_string)
 
         elif instruction[1] in ["all", "current", "off"]:
-            client.song_queue.repeat_mode = instruction[1]
+            client.music.repeat_mode = instruction[1]
             message_string = "Setting repeat mode to \"{}\".".format(instruction[1])
             logger.info(message_string)
             await client.send_message(message.channel, message_string)
@@ -474,10 +500,10 @@ async def skip_track(client, message, instruction, **kwargs):
     """Skips the current track in the song queue.
 
     Note: Skip will not proceed through the queue if repeat mode is set to 'current.'"""
-    if message.author == client.song_queue.playback_queue[0].requester:
+    if message.author == client.music.playback_queue[0].requester:
         message_string = "Song skip requested by song requestor. Playing next song."
     else:
         message_string = "Song skip requested. Playing next song."
     logger.info(message_string)
     await client.send_message(message.channel, message_string)
-    client.song_queue.active_player.stop()
+    client.music.active_player.stop()
