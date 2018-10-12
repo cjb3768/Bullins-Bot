@@ -4,11 +4,14 @@ import logging
 import youtube_dl
 import datetime
 import functools
+import os
+import shutil
 
 from collections import deque
 from youtube_dl.utils import ExtractorError, DownloadError, UnsupportedError
 from discord import ClientException
 
+#globals
 logger = logging.getLogger("bullinsbot.play")
 
 def get_available_commands():
@@ -21,8 +24,31 @@ class song_entry:
         self.message_channel = message.channel
         self.player = player
 
+
     def __str__(self):
         return "\"{}\" by {}, requested by {}".format(self.player.title, self.player.uploader, self.requester.display_name)
+
+
+class song_cache:
+    def __init__(self):
+        self.data = {}
+
+
+    def cache_song(self, url, song_data):
+        self.data[url] = song_data
+        return
+
+
+    def song_in_cache(self, url):
+        return url in self.data
+
+
+    def get_info_from_cache(self, url):
+        return self.data[url]
+
+
+    def __len__(self):
+        return len(self.data)
 
 
 class song_queue:
@@ -32,9 +58,12 @@ class song_queue:
         self.repeat_mode = "off"
         self.voice_channel = client.voice
         self.active_player = None
+        self.cache = song_cache()
+
 
     def __len__(self):
         return len(self.playback_queue)
+
 
     @asyncio.coroutine
     def custom_create_ytdl_player(self, url, *, ytdl_options=None, **kwargs):
@@ -51,19 +80,32 @@ class song_queue:
         if ytdl_options is not None and isinstance(ytdl_options, dict):
             opts.update(ytdl_options)
 
-        logger.info("Creating YTDL")
-        ydl = youtube_dl.YoutubeDL(opts)
-        logger.info("Creating YTDL function")
-        func = functools.partial(ydl.extract_info, url, download=True)
-        logger.info("Running YTDL function")
-        info = yield from self.voice_channel.loop.run_in_executor(None, func)
-        if "entries" in info:
-            info = info['entries'][0]
+        # check to see if the song requested is already in the player cache
+        if not self.cache.song_in_cache(url):
+            logger.info("Creating YTDL")
+            ydl = youtube_dl.YoutubeDL(opts)
+            logger.info("Creating YTDL function")
+            func = functools.partial(ydl.extract_info, url, download=False)
+            logger.info("Running YTDL function")
+            info = yield from self.voice_channel.loop.run_in_executor(None, func)
+            if "entries" in info:
+                info = info['entries'][0]
+
+            logger.info("Adding song to cache.")
+            self.cache.cache_song(url, info)
+            logger.info(self.cache.data.keys())
+            #logger.info(self.cache.data[url])
+            logger.info(info.keys())
+            #player = self.voice_channel.create_ffmpeg_player(info['_filename'], **kwargs)
+
+        else:
+            logger.info("Song already in cache.")
+            info = self.cache.get_info_from_cache(url)
+            ydl = None
 
         logger.info('playing URL {}'.format(url))
         download_url = info['url']
         player = self.voice_channel.create_ffmpeg_player(download_url, **kwargs)
-        #player = self.voice_channel.create_ffmpeg_player(info['_filename'], **kwargs)
 
         # set the dynamic attributes from the info extraction
         player.download_url = download_url
@@ -96,9 +138,10 @@ class song_queue:
         player.upload_date = date
         return player
 
+
     async def add_song(self, client, message, url, append_right):
         """Create a new song and add it to playback_queue"""
-        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={"download_archive":"Cache\\archive.txt","cachedir":"Cache", "outtmpl":"Cache\%(title)s-%(id)s.%(ext)s", "writeinfojson":"true", "loadinfojson":"true"}, after=lambda: self.advance_queue(client, message)))
+        new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={}, after=lambda: self.advance_queue(client, message)))
         if append_right:
             self.playback_queue.append(new_song)
         else:
@@ -107,9 +150,10 @@ class song_queue:
             self.active_player = self.playback_queue[0].player
         await client.send_message(message.channel, "Queued {}".format(self.playback_queue[-1]))
 
+
     def advance_queue(self, client, message):
 
-        if not self.play_status == "stopped":
+        if not self.play_status == "inactive":
             logger.info("Advancing queue.")
             logger.debug("Playback_queue length = {}, repeat_mode = {}".format(len(self.playback_queue),self.repeat_mode))
 
@@ -200,8 +244,8 @@ class song_queue:
 
 
 async def execute(client, message, instruction, **kwargs):
-    """Stream from an online source back over a given voice channel
-       Supported platforms will be added to this note as they are added
+    """Stream from an online source back over a given voice channel.
+       Supported platforms will be added to this note as they are added.
 
        Currently supported formats can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
     """
@@ -239,13 +283,12 @@ async def execute(client, message, instruction, **kwargs):
         else:
             await client.song_queue.add_song(client, message, instruction[1], True)
             logger.info("Queue currently contains {} songs.".format(len(client.song_queue)))
-            #await start_stream(client)
             client.song_queue.active_player.start()
 
     except AttributeError as e:
         logger.error("User not connected to voice channel.")
         logger.error(e)
-        await client.send_message(message.channel, "Error: Requestor isn't in a voice channel.")
+        await client.send_message(message.channel, "Error: Requester isn't in a voice channel.")
 
     except DownloadError:
         logger.error("Unable to download video")
