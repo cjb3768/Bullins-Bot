@@ -11,8 +11,11 @@ from collections import deque
 from youtube_dl.utils import ExtractorError, DownloadError, UnsupportedError
 from discord import ClientException
 
-#globals
+###########
+# GLOBALS #
+###########
 logger = logging.getLogger("bullinsbot.play")
+
 
 def get_available_commands():
     return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode, "skip":skip_track}
@@ -67,9 +70,9 @@ class music_class:
 
     @asyncio.coroutine
     def custom_create_ytdl_player(self, url, *, ytdl_options=None, **kwargs):
-        # This is more or less a direct copy of the "create_ytdl_player" function from discord.py
-        # However, this one allows for downloading with youtube_dl, and will instead load a stream player
-        # if a song has already been downloaded.
+        """This is a modified copy of the "create_ytdl_player" function from discord.py.
+        The big difference here is that this version caches data pulled from youtube_dl, as it appears to be the biggest bottleneck on playback,
+        especially when trying to play a given song more than song_cache during a given bot lifecycle. """
 
         use_avconv = kwargs.get('use_avconv', False)
         opts = {
@@ -82,11 +85,11 @@ class music_class:
 
         # check to see if the song requested is already in the player cache
         if not self.cache.song_in_cache(url):
-            logger.info("Creating YTDL")
+            #logger.info("Creating YTDL")
             ydl = youtube_dl.YoutubeDL(opts)
-            logger.info("Creating YTDL function")
+            #logger.info("Creating YTDL function")
             func = functools.partial(ydl.extract_info, url, download=False)
-            logger.info("Running YTDL function")
+            #logger.info("Running YTDL function")
             info = yield from self.voice_channel.loop.run_in_executor(None, func)
             if "entries" in info:
                 info = info['entries'][0]
@@ -101,7 +104,7 @@ class music_class:
         else:
             logger.info("Song already in cache.")
             info = self.cache.get_info_from_cache(url)
-            ydl = None
+            ydl = None  #songs pulled from cache won't have access to the youtube_dl object, but we never use it, so it's not a huge deal; if you are expanding this code and want that access, add it to 'info' before caching in the above 'if' block.
 
         logger.info('playing URL {}'.format(url))
         download_url = info['url']
@@ -140,7 +143,8 @@ class music_class:
 
 
     async def add_song(self, client, message, url, append_right):
-        """Create a new song and add it to playback_queue"""
+        """Create a new song and add it to playback_queue."""
+
         new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={}, after=lambda: self.advance_queue(client, message)))
         if append_right:
             self.playback_queue.append(new_song)
@@ -152,6 +156,7 @@ class music_class:
 
 
     def advance_queue(self, client, message):
+        """Advance the song queue, based on the music object's current repeat mode."""
 
         if not self.status == "inactive":
             logger.info("Advancing queue.")
@@ -192,8 +197,6 @@ class music_class:
 
                     next_song_message = client.send_message(message.channel, "Queue empty. Disconnecting from voice channel.")
                     logger.info("Queue empty. Disconnecting from voice channel.")
-
-                    #self.reset_queue()
 
                     queue_coroutine = self.voice_channel.disconnect()
 
@@ -245,24 +248,14 @@ class music_class:
                 logger.error(e)
 
 
-    def reset_queue(self, keep_cache):
-        self.active_player = None
-        self.playback_queue.clear()
-        self.status = "inactive"
-        self.repeat_mode = "off"
-
-
     def set_status(self, new_status):
         self.status = new_status
 
 
 async def execute(client, message, instruction, **kwargs):
-    """Stream from an online source back over a given voice channel.
-       Supported platforms will be added to this note as they are added.
-
-       Currently supported formats can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
+    """Stream audio from an online source over a given voice channel.
+       Currently supported websites can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
     """
-    #this is a video request; connect to channel if not already connected, load stream, and play
 
     #Attempt to connect to voice channel
     try:
@@ -280,16 +273,15 @@ async def execute(client, message, instruction, **kwargs):
         logger.error(e)
 
 
-    #attempt to load and play a video
+    #Attempt to load and play a video
     try:
-        #check to see if the music class has a player running already
+        #Check to see if the music class has a player running already
         if client.music.active_player == None:
             #there isn't an active player; add a song and start playing.
             logger.info("No active player was found. Adding song.")
             await client.music.add_song(client, message, instruction[1], True)
             logger.info("Queue currently contains {} songs.".format(len(client.music)))
             logger.info("Playing song.")
-
 
             client.music.active_player.start()
             client.music.set_status("playing")
@@ -346,7 +338,7 @@ async def queue_info(client, message, instruction, **kwargs):
 
 
 async def pause(client, message, instruction, **kwargs):
-    """Pause stream playback"""
+    """Pause stream playback."""
 
     try:
         if client.music.status == "playing":
@@ -368,7 +360,8 @@ async def pause(client, message, instruction, **kwargs):
 
 
 async def resume(client, message, instruction, **kwargs):
-    """Resume stream playback"""
+    """Resume stream playback."""
+
     try:
         if client.music.status == "paused":
             logger.info("Resuming playback")
@@ -390,12 +383,11 @@ async def resume(client, message, instruction, **kwargs):
 
 
 async def stop(client, message, instruction, **kwargs):
-    """Stops stream playback"""
+    """Stops stream playback."""
     try:
         logger.info("Stopping playback")
         client.music.set_status("inactive")
         client.music.active_player.stop()
-        #client.music.reset_queue()
 
         await client.send_message(message.channel, "Stream stopped.")
         await client.voice.disconnect()
@@ -420,7 +412,6 @@ def limit_volume(volume_level):
 
 
 async def adjust_volume(client, message, instruction):
-
     #handle differences in input between "volume +/- x" and "volume +x/-x"
     if len(instruction) == 2:
         volume_adjustment = int(instruction[1][1:])/100
@@ -439,7 +430,11 @@ async def adjust_volume(client, message, instruction):
 
 
 async def set_volume(client, message, instruction, **kwargs):
-    """Reports or allows for manual setting or adjustment of the volume of the active stream."""
+    """Reports or allows for manual setting or adjustment of the volume of the active stream.
+       Available options:
+       <no option> - returns the current volume level of the active stream.
+       "+/- x" - raises or lowers the volume by x percent. Values of x that would push the volume above 100% or below 0% round out to those values.
+       "x" - sets the stream volume to an exact percentage. Volume percentages above 100% or below 0% round to those values."""
 
     try:
         if len(instruction) == 1:
@@ -498,8 +493,7 @@ async def set_repeat_mode(client, message, instruction, **kwargs):
 
 async def skip_track(client, message, instruction, **kwargs):
     """Skips the current track in the song queue.
-
-    Note: Skip will not proceed through the queue if repeat mode is set to 'current.'"""
+       Note: Skip will not proceed through the queue if repeat mode is set to 'current.'"""
     if message.author == client.music.playback_queue[0].requester:
         message_string = "Song skip requested by song requestor. Playing next song."
     else:
