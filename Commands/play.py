@@ -91,20 +91,23 @@ class music_class:
             if "entries" in info:
                 logger.info("Number of Entries = {}".format(len(info['entries'])))
                 for entry in info['entries']:
-                    for key in entry.keys():
-                        logger.info("{} = {}".format(key, entry[key]))
-                info = info['entries'][0]
+                    # add each song's url to the cache
+                    logger.info("Adding url for {} to cache.".format(entry.get('title')))
+                    self.cache.cache_song(entry.get('webpage_url'), entry)
+                    #for key in entry.keys():
+                    #    logger.info("{} = {}".format(key, entry[key]))
+                #info = info['entries'][0]
 
-            logger.info("Adding song to cache.")
+            logger.info("Adding url to cache.")
             self.cache.cache_song(url, info)
             logger.debug(self.cache.data.keys())
             #logger.info(self.cache.data[url])
-            logger.info(info.keys())
-            for key in info.keys():
-                logger.info("{} = {}".format(key, info[key]))
+            #logger.debug(info.keys())
+            #for key in info.keys():
+            #    logger.info("{} = {}".format(key, info[key]))
 
         else:
-            logger.info("Song already in cache.")
+            logger.info("Url already in cache.")
             info = self.cache.get_info_from_cache(url)
 
         return info
@@ -114,9 +117,9 @@ class music_class:
     def create_player_from_info(self, info, **kwargs):
         try:
             #  get url from info and create player
-            source_url = info['webpage_url']
+            source_url = info.get('webpage_url')
             logger.info('playing URL {}'.format(source_url))
-            download_url = info['url']
+            download_url = info.get('url')
             player = self.voice_channel.create_ffmpeg_player(download_url, **kwargs)
 
             # set the dynamic attributes from the info extraction
@@ -387,6 +390,7 @@ async def execute(client, message, instruction, **kwargs):
             logger.info("Queue currently contains {} songs.".format(len(client.music)))
             logger.info("Playing song.")
 
+            client.send_message(message.channel, "Now playing: {}".format(client.music.playback_queue[0]))
             client.music.active_player.start()
             client.music.set_status("playing")
 
