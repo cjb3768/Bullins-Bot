@@ -70,51 +70,55 @@ class music_class:
 
     @asyncio.coroutine
     def extract_song_info(self, url, *, ytdl_options=None, **kwargs):
+        """This uses part of the code from the "create_ytdl_player" function from discord.py, specifically the parts that extract song information.
+        The big difference here is that this version caches data pulled from youtube_dl, as it appears to be the biggest bottleneck on playback,
+        especially when trying to play a given song more than song_cache during a given bot lifecycle.
 
-        use_avconv = kwargs.get('use_avconv', False)
-        opts = {
-            'format': 'webm[abr>0]/bestaudio/best',
-            'prefer_ffmpeg': not use_avconv
-        }
+        Returns a list of extracted song information for either one song or a playlist full of entries"""
+        
+        try:
+            use_avconv = kwargs.get('use_avconv', False)
+            opts = {
+                'format': 'webm[abr>0]/bestaudio/best',
+                'prefer_ffmpeg': not use_avconv
+            }
 
-        if ytdl_options is not None and isinstance(ytdl_options, dict):
-            opts.update(ytdl_options)
+            if ytdl_options is not None and isinstance(ytdl_options, dict):
+                opts.update(ytdl_options)
 
-        # check to see if the song requested is already in the player cache
-        if not self.cache.song_in_cache(url):
-            #logger.info("Creating YTDL")
-            ydl = youtube_dl.YoutubeDL(opts)
-            #logger.info("Creating YTDL function")
-            func = functools.partial(ydl.extract_info, url, download=False)
-            #logger.info("Running YTDL function")
-            info = yield from self.voice_channel.loop.run_in_executor(None, func)
-            if "entries" in info:
-                logger.info("Number of Entries = {}".format(len(info['entries'])))
-                for entry in info['entries']:
-                    # add each song's url to the cache
-                    logger.info("Adding url for {} to cache.".format(entry.get('title')))
-                    self.cache.cache_song(entry.get('webpage_url'), entry)
-                    #for key in entry.keys():
-                    #    logger.info("{} = {}".format(key, entry[key]))
-                #info = info['entries'][0]
+            # check to see if the song requested is already in the player cache
+            if not self.cache.song_in_cache(url):
+                ydl = youtube_dl.YoutubeDL(opts)
+                func = functools.partial(ydl.extract_info, url, download=False)
+                info = yield from self.voice_channel.loop.run_in_executor(None, func)
 
-            logger.info("Adding url to cache.")
-            self.cache.cache_song(url, info)
-            logger.debug(self.cache.data.keys())
-            #logger.info(self.cache.data[url])
-            #logger.debug(info.keys())
-            #for key in info.keys():
-            #    logger.info("{} = {}".format(key, info[key]))
+                if "entries" in info:
+                    # we extracted info from a playlist; need to queue up
+                    logger.info("Number of Entries = {}".format(len(info['entries'])))
+                    for entry in info['entries']:
+                        # add each song's url to the cache
+                        logger.info("Adding url for {} to cache.".format(entry.get('title')))
+                        self.cache.cache_song(entry.get('webpage_url'), entry)
 
-        else:
-            logger.info("Url already in cache.")
-            info = self.cache.get_info_from_cache(url)
+                logger.info("Adding url to cache.")
+                self.cache.cache_song(url, info)
 
-        return info
+            else:
+                logger.info("Url already in cache.")
+                info = self.cache.get_info_from_cache(url)
+
+            return info
+
+        except Exception as e:
+            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error(e)
 
 
     @asyncio.coroutine
     def create_player_from_info(self, info, **kwargs):
+        """This uses part of the code from the "create_ytdl_player" function from discord.py, specifically the part related to creating a player and updating dynamic player information.
+        This creates a stream player for a single song from information extracted using youtube-dl, then returns that stream player.
+        """
         try:
             #  get url from info and create player
             source_url = info.get('webpage_url')
@@ -157,100 +161,20 @@ class music_class:
             logger.error(e)
 
 
-    # @asyncio.coroutine
-    # def custom_create_ytdl_player(self, url, *, ytdl_options=None, **kwargs):
-    #     """This is a modified copy of the "create_ytdl_player" function from discord.py.
-    #     The big difference here is that this version caches data pulled from youtube_dl, as it appears to be the biggest bottleneck on playback,
-    #     especially when trying to play a given song more than song_cache during a given bot lifecycle. """
-    #
-    #     use_avconv = kwargs.get('use_avconv', False)
-    #     opts = {
-    #         'format': 'webm[abr>0]/bestaudio/best',
-    #         'prefer_ffmpeg': not use_avconv
-    #     }
-    #
-    #     if ytdl_options is not None and isinstance(ytdl_options, dict):
-    #         opts.update(ytdl_options)
-    #
-    #     # check to see if the song requested is already in the player cache
-    #     if not self.cache.song_in_cache(url):
-    #         #logger.info("Creating YTDL")
-    #         ydl = youtube_dl.YoutubeDL(opts)
-    #         #logger.info("Creating YTDL function")
-    #         func = functools.partial(ydl.extract_info, url, download=False)
-    #         #logger.info("Running YTDL function")
-    #         info = yield from self.voice_channel.loop.run_in_executor(None, func)
-    #         if "entries" in info:
-    #             logger.info("Number of Entries = {}".format(len(info['entries'])))
-    #             for entry in info['entries']:
-    #                 for key in entry.keys():
-    #                     logger.info("{} = {}".format(key, entry[key]))
-    #             info = info['entries'][0]
-    #
-    #         logger.info("Adding song to cache.")
-    #         self.cache.cache_song(url, info)
-    #         logger.debug(self.cache.data.keys())
-    #         #logger.info(self.cache.data[url])
-    #         logger.info(info.keys())
-    #         for key in info.keys():
-    #             logger.info("{} = {}".format(key, info[key]))
-    #         #player = self.voice_channel.create_ffmpeg_player(info['_filename'], **kwargs)
-    #
-    #     else:
-    #         logger.info("Song already in cache.")
-    #         info = self.cache.get_info_from_cache(url)
-    #         ydl = None  #songs pulled from cache won't have access to the youtube_dl object, but we never use it, so it's not a huge deal; if you are expanding this code and want that access, add it to 'info' before caching in the above 'if' block.
-    #
-    #     logger.info('playing URL {}'.format(url))
-    #     download_url = info['url']
-    #     player = self.voice_channel.create_ffmpeg_player(download_url, **kwargs)
-    #
-    #     # set the dynamic attributes from the info extraction
-    #     player.download_url = download_url
-    #     player.url = url
-    #     player.yt = ydl
-    #     player.views = info.get('view_count')
-    #     player.is_live = bool(info.get('is_live'))
-    #     player.likes = info.get('like_count')
-    #     player.dislikes = info.get('dislike_count')
-    #     player.duration = info.get('duration')
-    #     player.uploader = info.get('uploader')
-    #
-    #     is_twitch = 'twitch' in url
-    #     if is_twitch:
-    #         # twitch has 'title' and 'description' sort of mixed up.
-    #         player.title = info.get('description')
-    #         player.description = None
-    #     else:
-    #         player.title = info.get('title')
-    #         player.description = info.get('description')
-    #
-    #     # upload date handling
-    #     date = info.get('upload_date')
-    #     if date:
-    #         try:
-    #             date = datetime.datetime.strptime(date, '%Y%M%d').date()
-    #         except ValueError:
-    #             date = None
-    #
-    #     player.upload_date = date
-    #     return player
-
-
     async def add_song(self, client, message, url, append_right):
         """Create a new song and add it to playback_queue."""
 
-        #get song info from url
+        # get song info from url
         extracted_info = await self.extract_song_info(url, ytdl_options={})
         songs_to_append = [];
         if "entries" in extracted_info:
+            await client.send_message(message.channel, "Playback request received for a playlist. Processing {} songs.".format(len(extracted_info.get("entries"))))
             for entry in extracted_info["entries"]:
                 songs_to_append.append(song_entry(message, await self.create_player_from_info(entry, after=lambda: self.advance_queue(client, message))))
         else:
             songs_to_append.append(song_entry(message, await self.create_player_from_info(extracted_info, after=lambda: self.advance_queue(client, message))))
 
-        #new_song = song_entry(message, await self.custom_create_ytdl_player(url, ytdl_options={}, after=lambda: self.advance_queue(client, message)))
-
+        # append songs to playback queue
         for new_song in songs_to_append:
             if append_right:
                 self.playback_queue.append(new_song)
@@ -297,7 +221,7 @@ class music_class:
 
             # the queue only had one song in it
             else:
-                # repeat mode is off, meaning updating the queue emtpies it. Clear the queue, and disconnect.
+                # repeat mode is off, meaning updating the queue empties it. Clear the queue, and disconnect.
                 if self.repeat_mode == "off":
                     repeat_coroutine = None;
 
