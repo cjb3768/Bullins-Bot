@@ -13,7 +13,7 @@ Commands are prefaced by the invocation `b!`, for example:
 * `help ['command']` - Request available commands, or info on specific command if given.
 * `echo 'phrase'` - Repeats 'phrase' in current chat.
 * `roll 'dice'` - Randomly rolls dice with support for chained rolls of n-sided dice and modifiers.
-* `play 'url'` - Plays audio from a given url source in the voice chat you are currently in. Supports queueing of audio sources from a number of different websites (full list [here](https://rg3.github.io/youtube-dl/supportedsites.html)).
+* `play 'url'` - Plays audio from a given url source in the voice chat you are currently in. Supports queueing of audio sources from a number of different websites, including YouTube, Soundcloud, Twitch.tv, and others. See help text for command for full list.
 * `pause` - Pauses stream player if one is active.
 * `resume` - Resume stream player if one is active.
 * `stop` - Stop streaming audio if a stream player is active.
@@ -22,3 +22,10 @@ Commands are prefaced by the invocation `b!`, for example:
 * `repeat [' ', 'all/current/off']` - Report the current repeat mode for the current stream playback queue, or set it to repeat either all songs in the queue, the current song, or no songs.
 * `skip` - Skips the current song in the stream playback queue.
 * `clean ['number']` - Scans 'number' messages from the current channel and deletes any bot requests and bot replies.
+
+
+### Installation
+
+Note: this section is still under revision.
+
+Before running this application, you will need a Discord bot authorization token to authenticate and login with the bot. You can get that token by creating an application at [the Discord applications developer portal.](https://discordapp.com/developers/applications/) 
