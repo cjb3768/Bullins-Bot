@@ -75,7 +75,7 @@ class music_class:
         especially when trying to play a given song more than song_cache during a given bot lifecycle.
 
         Returns a list of extracted song information for either one song or a playlist full of entries"""
-        
+
         try:
             use_avconv = kwargs.get('use_avconv', False)
             opts = {
@@ -284,9 +284,11 @@ class music_class:
 
 async def execute(client, message, instruction, **kwargs):
     """Stream audio from an online source over a given voice channel.
-       Currently supported sources: YouTube, Soundcloud, Twitch.tv,
+       Known supported sources: YouTube, Soundcloud, Twitch.tv
+
+       Note:
+          Potential sources for playback can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
     """
-    #Potential sources for playback can be found here: https://rg3.github.io/youtube-dl/supportedsites.html
 
     #Attempt to connect to voice channel
     try:
