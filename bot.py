@@ -39,6 +39,9 @@ async def on_message(message):
 
             logger.info("Given instruction '{}' with args '{}'".format(instructions[0], instructions[1:]))
 
+            for role in message.author.roles:
+                logger.info("Role name = {}, role permissions {}".format(role.name, role.permissions))
+
             try:
                 # Attempt to execute the given instruction.
                 await commands[instructions[0]](client, message, instructions, commands=commands)
