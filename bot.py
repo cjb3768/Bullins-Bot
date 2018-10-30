@@ -3,6 +3,7 @@ import discord
 import asyncio
 import logging
 import pkgutil
+import configparser
 import Commands
 
 ###########
@@ -28,6 +29,8 @@ async def on_message(message):
     if message.content.startswith(client.invocation):
         # Consume the invocation.
         message.content = message.content[len(client.invocation):]
+
+        #TODO: Check user permissions
 
         if message.content == "shutdown":
             await client.logout()
@@ -55,24 +58,30 @@ async def on_message(message):
 
 
 def main():
+    try:
     # Set logging to output all messages INFO level or higher.
-    logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO)
 
-    # Import all commands from the Commands package and categorize them.
-    prefix = Commands.__name__ + "."
-    for importer, mod_name, ispkg in pkgutil.iter_modules(Commands.__path__, prefix):
-        module = importer.find_module(mod_name).load_module(mod_name)
-        commands.update(module.get_available_commands())
+        # Import all commands from the Commands package and categorize them.
+        prefix = Commands.__name__ + "."
+        for importer, mod_name, ispkg in pkgutil.iter_modules(Commands.__path__, prefix):
+            module = importer.find_module(mod_name).load_module(mod_name)
+            commands.update(module.get_available_commands())
 
-    logger.info("Found %s commands.", len(commands))
+        logger.info("Found %s commands.", len(commands))
 
-    # Read in token info from bot_token.txt
-    #token_file = open("bot_token.txt","r")
-    #bot_login_token = token_file.read()
+        # Read in configuration file
+        client.config = configparser.ConfigParser()
+        client.config.read('permissions.ini')
 
-    # Start the client and give it our token.
-    #client.run(bot_login_token)
-    client.run(os.environ["DISCORD_TOKEN"])
+        logger.info("Permission configurations found for roles: {}".format(client.config.sections()))
+
+        # Start the client and give it our token.
+        client.run(os.environ["DISCORD_TOKEN"])
+        
+    except Exception as e:
+        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error(e)
 
 
 if __name__ == "__main__":
