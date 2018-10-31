@@ -27,17 +27,25 @@ def get_highest_priority_role():
     return highest_priority_role
 
 
-def set_user_permissions(message):
+def set_bot_permissions(message):
     """check each role a user has to see if they have any that match the configuration file,
        then assign those permissions to the user for later use"""
 
-    # first, check to see if user has either general administrator priveleges,
+    # first, clear any old bot permissions
+    try:
+        # Remove current bot permissions to prevent accidental overlap after a call from an admin
+        delattr(client, "current_bot_permissions")
+    except AttributeError:
+        # We had no prior bot permissions.
+        pass
+
+    # next, check to see if user has either general administrator priveleges,
     # or if the user has any of the roles specified in the client config
     for role in message.author.roles:
         # check for generic administrator priveleges in the given role
         if role.permissions.administrator:
             # set permissions to highest priority permission configuration in client config
-            logger.info("Role {} has general administrative privileges. Assigning highest level bot permissions.".format(role.name))
+            logger.debug("Role {} has general administrative privileges. Assigning highest level bot permissions.".format(role.name))
             client.current_bot_permissions = get_highest_priority_role();
             # return; we can't do better than this.
             return
@@ -48,23 +56,33 @@ def set_user_permissions(message):
             # assuming the user has permissions set already, if the priority of this role is higher than the one the user already has, update their permissions
             try:
                 if client.permission_config[role.name]['role-priority'] > client.current_bot_permissions['role-priority']:
-                    logger.info("Role {} has greater permissions than previously allotted to the user. Applying new permissions.".format(role.name))
+                    logger.debug("Role {} has greater permissions than previously allowed. Applying new permissions.".format(role.name))
                     client.current_bot_permissions = client.permission_config[role.name]
 
             # otherwise, the user has no permissions set, assign them the permissions from this role
             except AttributeError:
-                logger.info("User has no bot permissions set. Applying permissions for {}.".format(role.name))
+                logger.debug("No bot permissions set. Applying permissions for {}.".format(role.name))
                 client.current_bot_permissions = client.permission_config[role.name]
 
     # if at this point, the user still has no permissions set, then assign them the default permission category
     if not hasattr(client, "current_bot_permissions") or client.current_bot_permissions is None:
-        logger.info("User has no bot permissions set. Applying default permissions.")
+        logger.debug("No bot permissions set. Applying default permissions.")
         client.current_bot_permissions = client.permission_config['Default']
 
 
-def check_command_permissions(user, command):
-    # check to see if the user is allowed to use a command
-    pass
+def check_command_permissions(command):
+    # check to see if the bot is allowed to run a command
+    if '*' in client.current_bot_permissions['bot-functions']:
+        # all commands allowed
+        logger.debug("Current permissions allow all commands.")
+        return True
+    elif command in client.current_bot_permissions['bot-functions']:
+        #command is allowed
+        logger.debug("Current permissions allow for command '{}'.".format(command))
+        return True
+    else:
+        logger.debug("Current permissions do no allow for command '{}'.".format(command))
+        return False
 
 
 @client.event
@@ -82,36 +100,38 @@ async def on_message(message):
         message.content = message.content[len(client.invocation):]
 
         # Set current bot permissions based on the client call
-        set_user_permissions(message)
-        logger.info("Bot currently operating with the following permissions:")
+        set_bot_permissions(message)
+        logger.debug("Bot currently operating with the following permissions:")
         for key in client.current_bot_permissions:
-            logger.info("{} : {}".format(key, client.current_bot_permissions[key]))
+            logger.debug("{} : {}".format(key, client.current_bot_permissions[key]))
 
         # Tokenize the message contents
         instructions = message.content.split(' ')
 
         logger.info("Given instruction '{}' with args '{}'".format(instructions[0], instructions[1:]))
 
-        #TODO: Check user permissions
+        #check to see if command is allowed given current permission levels
+        if check_command_permissions(instructions[0]):
+            # permission levels allow for current command
+            if instructions[0] == "shutdown":
+                await client.logout()
+                logger.info("Logged out successfully.")
 
-        if instructions[0] == "shutdown":
-            await client.logout()
-            logger.info("Logged out successfully.")
+            else:
+                try:
+                    # Attempt to execute the given instruction.
+                    await commands[instructions[0]](client, message, instructions, commands=commands)
 
+                except KeyError:
+                    logger.error("Unrecognized instruction: %s", instructions[0])
+                    #FIXME: Respond that the instruction is unrecognized and suggest checking 'help'
+
+                except Exception as e:
+                    logger.error(e)
         else:
-            try:
-                # Attempt to execute the given instruction.
-                await commands[instructions[0]](client, message, instructions, commands=commands)
-
-            except KeyError:
-                logger.error("Unrecognized instruction: %s", instructions[0])
-                #FIXME: Respond that the instruction is unrecognized and suggest checking 'help'
-
-            except Exception as e:
-                logger.error(e)
-
-        # Remove current bot permissions to prevent accidental overlap after a call from an admin
-        delattr(client, "current_bot_permissions")
+            # permission levels do not allow for current command
+            logger.error("User does not have permission to use requested command.")
+            await client.send_message(message.channel, "Either that command is invalid, or you do not have permission to use it. Talk to your administrator for more info.")
 
 
 def main():
