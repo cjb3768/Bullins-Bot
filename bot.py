@@ -70,11 +70,11 @@ def set_bot_permissions(message):
         client.current_bot_permissions = client.permission_config['Default']
 
 
-def check_command_permissions(command):
+def check_command_permissions(client, command):
     # check to see if the bot is allowed to run a command
     if '*' in client.current_bot_permissions['bot-functions']:
         # all commands allowed
-        logger.debug("Current permissions allow all commands.")
+        logger.info("Current permissions allow all commands.")
         return True
     elif command in client.current_bot_permissions['bot-functions']:
         #command is allowed
@@ -111,7 +111,7 @@ async def on_message(message):
         logger.info("Given instruction '{}' with args '{}'".format(instructions[0], instructions[1:]))
 
         #check to see if command is allowed given current permission levels
-        if check_command_permissions(instructions[0]):
+        if check_command_permissions(client, instructions[0]):
             # permission levels allow for current command
             if instructions[0] == "shutdown":
                 await client.logout()
@@ -131,7 +131,7 @@ async def on_message(message):
         else:
             # permission levels do not allow for current command
             logger.error("User does not have permission to use requested command.")
-            await client.send_message(message.channel, "Either that command is invalid, or you do not have permission to use it. Talk to your administrator for more info.")
+            await client.send_message(message.channel, "Either that command is invalid or you do not have permission to use it. Talk to your administrator for more info.")
 
 
 def main():

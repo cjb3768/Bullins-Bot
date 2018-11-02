@@ -18,7 +18,7 @@ logger = logging.getLogger("bullinsbot.play")
 
 
 def get_available_commands():
-    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode, "skip":skip_track}
+    return {"play": execute, "pause": pause, "resume": resume, "stop": stop,  "repeat":set_repeat_mode, "skip":skip_track, "queue":queue_info, "volume": set_volume}
 
 
 class song_entry:
