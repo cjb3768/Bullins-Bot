@@ -40,7 +40,7 @@ async def execute(client, message, instruction, **kwargs):
     if len(instruction) > 2:
         logger.warning("Unknown command '%s'!", instruction[1:])
 
-        await client.send_message(message.author, "Warning: Too many arguments. Try again with the format `b! help [command].`")
+        await client.send_message(message.author, "Warning: Too many arguments. Try again with the format `{} help [command].`".format(client.invocation))
 
     elif len(instruction) == 2:
         logger.debug("User looking for specific info about command %s.", instruction[1])
