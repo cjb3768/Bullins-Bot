@@ -18,7 +18,7 @@ logger = logging.getLogger("bullinsbot.play")
 
 
 def get_available_commands():
-    return {"play": execute, "pause": pause, "resume": resume, "stop": stop, "volume": set_volume, "queue":queue_info, "repeat":set_repeat_mode, "skip":skip_track}
+    return {"play": execute, "pause": pause, "resume": resume, "stop": stop,  "repeat":set_repeat_mode, "skip":skip_track, "queue":queue_info, "volume": set_volume}
 
 
 class song_entry:
@@ -92,6 +92,8 @@ class music_class:
                 func = functools.partial(ydl.extract_info, url, download=False)
                 info = yield from self.voice_channel.loop.run_in_executor(None, func)
 
+                logger.info(info['extractor'])
+
                 if "entries" in info:
                     # we extracted info from a playlist; need to queue up
                     logger.info("Number of Entries = {}".format(len(info['entries'])))
@@ -161,6 +163,18 @@ class music_class:
             logger.error(e)
 
 
+    def filter_songs_by_permissions(self, client, song_info):
+        """Check to see if a song source is in the client's current permission whitelist."""
+        if "*" in client.current_bot_permissions['stream-whitelist']:
+            logger.info("All song sources currently permitted.")
+            return True
+        elif song_info['extractor'] in client.current_bot_permissions['stream-whitelist']:
+            logger.info("Stream source is on the whitelist. Preparing to add to queue.")
+            return True
+        else:
+            logger.info("Stream source is not on the whitelist. Rejecting stream.")
+            return False
+
     async def add_song(self, client, message, url, append_right):
         """Create a new song and add it to playback_queue."""
 
@@ -170,9 +184,19 @@ class music_class:
         if "entries" in extracted_info:
             await client.send_message(message.channel, "Playback request received for a playlist. Processing {} songs.".format(len(extracted_info.get("entries"))))
             for entry in extracted_info["entries"]:
-                songs_to_append.append(song_entry(message, await self.create_player_from_info(entry, after=lambda: self.advance_queue(client, message))))
+                # check to see if user has permissions to add songs from this source
+                if self.filter_songs_by_permissions(client, entry):
+                    songs_to_append.append(song_entry(message, await self.create_player_from_info(entry, after=lambda: self.advance_queue(client, message))))
+                else:
+                    await client.send_message(message.channel, "The streams you requested come from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
+                    return
         else:
-            songs_to_append.append(song_entry(message, await self.create_player_from_info(extracted_info, after=lambda: self.advance_queue(client, message))))
+            # check to see if user has permissions to add songs from this source
+            if self.filter_songs_by_permissions(client, extracted_info):
+                songs_to_append.append(song_entry(message, await self.create_player_from_info(extracted_info, after=lambda: self.advance_queue(client, message))))
+            else:
+                await client.send_message(message.channel, "The stream you requested comes from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
+                return
 
         # append songs to playback queue
         for new_song in songs_to_append:
@@ -322,7 +346,7 @@ async def execute(client, message, instruction, **kwargs):
 
         else:
             #there is an active player
-            logger.warning("Existing player found. Adding song to queue.")
+            logger.warning("Existing player found. Attempting to add song to queue.")
             if client.music.status in ["playing","paused"]:
                 #a song is currently playing or paused; add track to back of queue_info
                 await client.music.add_song(client, message, instruction[1], True)
@@ -338,9 +362,16 @@ async def execute(client, message, instruction, **kwargs):
         logger.error(e)
         await client.send_message(message.channel, "Error: Requester isn't in a voice channel.")
 
-    except DownloadError:
+    except DownloadError as e:
         logger.error("Unable to download video")
         await client.send_message(message.channel, "Error: Invalid link.")
+        logger.error(e)
+        await client.voice.disconnect()
+
+    except IndexError as e:
+        #this should only happen when we try to play a song with an empty playback queue;
+        #should only occur if a user attempted to add songs from sources they are not permitted to stream from when there is nothing else in the queue
+        logger.warning("Attempted to play song with empty queue.")
         logger.error(e)
         await client.voice.disconnect()
 
