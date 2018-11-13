@@ -62,6 +62,7 @@ class music_class:
         self.voice_channel = client.voice
         self.active_player = None
         self.cache = client.song_cache
+        self.playlist_volume = .5
 
 
     def __len__(self):
@@ -232,7 +233,7 @@ class music_class:
                     next_song_message = client.send_message(message.channel, "Now playing: {}".format(self.playback_queue[0]))
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
-                    queue_coroutine = self.active_player.start()
+                    queue_coroutine = self.play_stream()
 
                 # else repeat is set to all; insert a duplicate of the current song into the queue
                 elif self.repeat_mode == "all":
@@ -274,7 +275,7 @@ class music_class:
                     next_song_message = client.send_message(message.channel, "Now playing: {}".format(self.playback_queue[0]))
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
-                    queue_coroutine = self.active_player.start()
+                    queue_coroutine = self.play_stream()
 
                 except Exception as e:
                     # an error occurred
@@ -300,6 +301,12 @@ class music_class:
                 # an error occurred
                 logger.error("An exception of type {} has occurred".format(type(e).__name__))
                 logger.error(e)
+
+
+    @asyncio.coroutine
+    def play_stream(self):
+        self.active_player.start()
+        self.active_player.volume = self.playlist_volume
 
 
     def set_status(self, new_status):
