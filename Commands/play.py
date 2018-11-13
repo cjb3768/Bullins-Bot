@@ -62,7 +62,7 @@ class music_class:
         self.voice_channel = client.voice
         self.active_player = None
         self.cache = client.song_cache
-        self.playlist_volume = .5
+        self.playlist_volume = 1
 
 
     def __len__(self):
@@ -493,12 +493,12 @@ async def adjust_volume(client, message, instruction):
     logger.info("attempting to adjust volume by %s", volume_adjustment)
 
     if instruction[1].startswith('+'):
-        client.music.active_player.volume = limit_volume(client.music.active_player.volume + volume_adjustment)
+        client.music.playlist_volume = limit_volume(client.music.playlist_volume + volume_adjustment)
     else:
-        client.music.active_player.volume = limit_volume(client.music.active_player.volume - volume_adjustment)
+        client.music.playlist_volume = limit_volume(client.music.playlist_volume - volume_adjustment)
 
-    logger.info("Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
-    await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
+    logger.info("Volume adjusted to {:.0%}.".format(client.music.playlist_volume))
+    await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.music.playlist_volume))
 
 
 async def set_volume(client, message, instruction, **kwargs):
@@ -510,8 +510,8 @@ async def set_volume(client, message, instruction, **kwargs):
 
     try:
         if len(instruction) == 1:
-            logger.info("current volume: %s", client.music.active_player.volume)
-            await client.send_message(message.channel, "Song is currently playing at {:.0%}.".format(client.music.active_player.volume))
+            logger.info("current volume: %s", client.music.playlist_volume)
+            await client.send_message(message.channel, "Song is currently playing at {:.0%}.".format(client.music.playlist_volume))
 
         elif instruction[1][0] in ['+','-']:
             await adjust_volume(client, message, instruction)
@@ -519,9 +519,11 @@ async def set_volume(client, message, instruction, **kwargs):
         else:
             volume_adjustment = int(instruction[1])/100
             logger.info("attempting to manually set volume")
-            client.music.active_player.volume = limit_volume(volume_adjustment)
-            logger.info("Set volume to {:.0%}.".format(client.music.active_player.volume))
-            await client.send_message(message.channel, "Set volume to {:.0%}.".format(client.music.active_player.volume))
+            client.music.playlist_volume = limit_volume(volume_adjustment)
+            logger.info("Set volume to {:.0%}.".format(client.music.playlist_volume))
+            await client.send_message(message.channel, "Set volume to {:.0%}.".format(client.music.playlist_volume))
+
+        client.music.active_player.volume = client.music.playlist_volume
 
     except ValueError:
         logger.error("Attempted to adjust volume by something other than a number")
