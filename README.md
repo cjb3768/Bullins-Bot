@@ -30,6 +30,6 @@ Note: this section is still under revision.
 
 Before running this application, you will need a Discord bot authorization token to authenticate and login with the bot. You can get that token by creating an application at [the Discord applications developer portal.](https://discordapp.com/developers/applications/) Once you have that token, you will need to add it as an environment variable on your OS with the name "DISCORD_TOKEN".
 
-You will also need to get the discord.py module with voice features enabled and the youtube-dl library. Installation instructions for each may be found at their respective github repositories, linked at the top of this readme.
+You will also need to get the discord.py module with voice features enabled, the youtube-dl library, and either ffmpeg or avconv. Installation instructions for discord.py and youtube-dl may be found at their respective github repositories, linked at the top of this readme; ffmpeg can be found [here.](https://www.ffmpeg.org)
 
 
