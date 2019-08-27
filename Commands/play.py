@@ -360,7 +360,7 @@ async def execute(client, message, instruction, **kwargs):
     except AttributeError as e:
         logger.error("User not connected to voice channel.")
         logger.error(e)
-        await message.channel.send("Error: Requester isn't in a voice channel.")
+        await message.channel.send("Error: AttributeError preventing client from joining voice channel.")
 
     except DownloadError as e:
         logger.error("Unable to download video")
@@ -384,12 +384,12 @@ async def execute(client, message, instruction, **kwargs):
 
 async def connect_to_voice_channel(client, message):
     #find voice channel author is in
-    logger.debug(message.guild.channels)
+    logger.debug(message.guild.voice_channels)
 
-    for channel in message.guild.channels:
-        if message.author in channel.voice_members:
+    for channel in message.guild.voice_channels:
+        if message.author in channel.members:
             logger.info("{} is in voice channel {}. Joining.".format(message.author.display_name, channel.name))
-            client.voice = await client.join_voice_channel(channel)
+            client.voice = await channel.connect()
 
 
 async def queue_info(client, message, instruction, **kwargs):

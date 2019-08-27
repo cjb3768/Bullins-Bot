@@ -61,5 +61,5 @@ async def execute(client, message, instruction, **kwargs):
         # Build a string to display.
         helptext = "Your current permissions give you access to the following commands:\n*{}*\nTry `{}help [command]` for more information on a given command.".format(command_list, client.invocation)
 
-        # Send a direct message to the user with requested information.
+        # Send a direct message to the user with requested information. CURRENTLY DUMPS TO TEXT CHANNEL.
         await message.channel.send(helptext)
