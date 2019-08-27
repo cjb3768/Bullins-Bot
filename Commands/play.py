@@ -411,7 +411,7 @@ async def pause(client, message, instruction, **kwargs):
     try:
         if client.music.status == "playing":
             logger.info("Pausing playback")
-            client.music.active_player.pause()
+            client.music.voice_channel.pause()
             client.music.set_status("paused")
             await message.channel.send("Stream paused.")
         else:
@@ -434,7 +434,7 @@ async def resume(client, message, instruction, **kwargs):
         if client.music.status == "paused":
             logger.info("Resuming playback")
             client.music.set_status("playing")
-            client.music.active_player.resume()
+            client.music.voice_channel.resume()
             await message.channel.send("Stream resumed.")
 
         else:
@@ -455,7 +455,7 @@ async def stop(client, message, instruction, **kwargs):
     try:
         logger.info("Stopping playback")
         client.music.set_status("inactive")
-        client.music.active_player.stop()
+        client.music.voice_channel.stop()
 
         await message.channel.send("Stream stopped.")
         await client.voice.disconnect()
