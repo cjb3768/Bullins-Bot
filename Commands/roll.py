@@ -89,4 +89,4 @@ async def execute(client, message, instruction, **kwargs):
 
     roll_result = eval_dice(''.join(instruction[1:]))
     logger.info("{} rolled a total of {} ({})".format(message.author, roll_result[0], roll_result[1]))
-    await client.send_message(message.channel, "{}, you rolled a total of {} ({})".format(message.author.display_name, roll_result[0], roll_result[1]))
+    await message.channel.send("{}, you rolled a total of {} ({})".format(message.author.display_name, roll_result[0], roll_result[1]))
