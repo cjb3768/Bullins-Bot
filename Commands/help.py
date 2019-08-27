@@ -40,17 +40,17 @@ async def execute(client, message, instruction, **kwargs):
     if len(instruction) > 2:
         logger.warning("Unknown command '%s'!", instruction[1:])
 
-        await client.send_message(message.author, "Warning: Too many arguments. Try again with the format `{} help [command].`".format(client.invocation))
+        await message.channel.send("Warning: Too many arguments. Try again with the format `{} help [command].`".format(client.invocation))
 
     elif len(instruction) == 2:
         logger.debug("User looking for specific info about command %s.", instruction[1])
 
         try:
-            await client.send_message(message.author, "*{}*: {}".format(instruction[1], commands[instruction[1]].__doc__))
+            await message.channel.send("*{}*: {}".format(instruction[1], commands[instruction[1]].__doc__))
         except KeyError:
             logger.warning("Unknown or restricted command '%s'!", instruction[1])
             #FIXME: Notify the user of the error.
-            await client.send_message(message.channel, "Error: The command you entered is either invalid or its access is restricted to you.\nContact your channel's Bullins-Bot administrator for more information.")
+            await message.channel.send("Error: The command you entered is either invalid or its access is restricted to you.\nContact your channel's Bullins-Bot administrator for more information.")
 
     else:
         logger.debug("User looking for general help.")
@@ -62,4 +62,4 @@ async def execute(client, message, instruction, **kwargs):
         helptext = "Your current permissions give you access to the following commands:\n*{}*\nTry `{}help [command]` for more information on a given command.".format(command_list, client.invocation)
 
         # Send a direct message to the user with requested information.
-        await client.send_message(message.author, helptext)
+        await message.channel.send(helptext)
