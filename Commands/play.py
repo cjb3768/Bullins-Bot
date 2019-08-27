@@ -22,14 +22,14 @@ def get_available_commands():
 
 
 class song_entry:
-    def __init__(self, message, player):
+    def __init__(self, message, audio_source):
         self.requester = message.author
         self.message_channel = message.channel
-        self.player = player
+        self.audio_source = audio_source
 
 
     def __str__(self):
-        return "\"{}\" by {}, requested by {}".format(self.player.title, self.player.uploader, self.requester.display_name)
+        return "\"{}\" by {}, requested by {}".format(self.audio_source.title, self.audio_source.uploader, self.requester.display_name)
 
 
 class song_cache:
@@ -60,7 +60,7 @@ class music_class:
         self.status = "inactive"
         self.repeat_mode = "off"
         self.voice_channel = client.voice
-        self.active_player = None
+        self.active_audio_source = None
         self.cache = client.song_cache
 
 
@@ -117,35 +117,36 @@ class music_class:
 
 
     @asyncio.coroutine
-    def create_player_from_info(self, info, **kwargs):
+    def create_audio_source_from_info(self, info, **kwargs):
         """This uses part of the code from the "create_ytdl_player" function from discord.py, specifically the part related to creating a player and updating dynamic player information.
         This creates a stream player for a single song from information extracted using youtube-dl, then returns that stream player.
         """
         try:
-            #  get url from info and create player
+            #  get url from info and create audio_source
             source_url = info.get('webpage_url')
             logger.info('playing URL {}'.format(source_url))
             download_url = info.get('url')
-            player = self.voice_channel.create_ffmpeg_player(download_url, **kwargs)
+            #player = self.voice_channel.create_ffmpeg_player(download_url, **kwargs)
+            audio_source = discord.FFmpegPCMAudio(download_url, **kwargs)
 
             # set the dynamic attributes from the info extraction
-            player.download_url = download_url
-            player.url = source_url
-            player.views = info.get('view_count')
-            player.is_live = bool(info.get('is_live'))
-            player.likes = info.get('like_count')
-            player.dislikes = info.get('dislike_count')
-            player.duration = info.get('duration')
-            player.uploader = info.get('uploader')
+            audio_source.download_url = download_url
+            audio_source.url = source_url
+            audio_source.views = info.get('view_count')
+            audio_source.is_live = bool(info.get('is_live'))
+            audio_source.likes = info.get('like_count')
+            audio_source.dislikes = info.get('dislike_count')
+            audio_source.duration = info.get('duration')
+            audio_source.uploader = info.get('uploader')
 
             is_twitch = 'twitch' in source_url
             if is_twitch:
                 # twitch has 'title' and 'description' sort of mixed up.
-                player.title = info.get('description')
-                player.description = None
+                audio_source.title = info.get('description')
+                audio_source.description = None
             else:
-                player.title = info.get('title')
-                player.description = info.get('description')
+                audio_source.title = info.get('title')
+                audio_source.description = info.get('description')
 
             # upload date handling
             date = info.get('upload_date')
@@ -155,11 +156,11 @@ class music_class:
                 except ValueError:
                     date = None
 
-                player.upload_date = date
-            return player
+                audio_source.upload_date = date
+            return audio_source
 
         except Exception as e:
-            logger.error("During player creation, an exception of type {} has occurred".format(type(e).__name__))
+            logger.error("During audio_source creation, an exception of type {} has occurred".format(type(e).__name__))
             logger.error(e)
 
 
@@ -186,14 +187,14 @@ class music_class:
             for entry in extracted_info["entries"]:
                 # check to see if user has permissions to add songs from this source
                 if self.filter_songs_by_permissions(client, entry):
-                    songs_to_append.append(song_entry(message, await self.create_player_from_info(entry, after=lambda: self.advance_queue(client, message))))
+                    songs_to_append.append(song_entry(message, await self.create_audio_source_from_info(entry)))
                 else:
                     await message.channel.send("The streams you requested come from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
                     return
         else:
             # check to see if user has permissions to add songs from this source
             if self.filter_songs_by_permissions(client, extracted_info):
-                songs_to_append.append(song_entry(message, await self.create_player_from_info(extracted_info, after=lambda: self.advance_queue(client, message))))
+                songs_to_append.append(song_entry(message, await self.create_audio_source_from_info(extracted_info)))
             else:
                 await message.channel.send("The stream you requested comes from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
                 return
@@ -204,8 +205,8 @@ class music_class:
                 self.playback_queue.append(new_song)
             else:
                 self.playback_queue.appendleft(new_song)
-            if self.active_player == None:
-                self.active_player = self.playback_queue[0].player
+            if self.active_audio_source == None:
+                self.active_audio_source = self.playback_queue[0].audio_source
             await message.channel.send("Queued {}".format(new_song))
 
 
@@ -227,21 +228,22 @@ class music_class:
                     repeat_coroutine = None;
 
                     logger.info("Queueing up next track.")
-                    self.active_player = self.playback_queue[0].player
+                    self.active_audio_source = self.playback_queue[0].audio_source
 
                     next_song_message = message.channel.send("Now playing: {}".format(self.playback_queue[0]))
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
-                    queue_coroutine = self.active_player.start()
+                    #queue_coroutine = self.active_player.start()
+                    queue_coroutine = self.voice_channel.play(self.active_audio_source, after=lambda: self.advance_queue(client, message))
 
                 # else repeat is set to all; insert a duplicate of the current song into the queue
                 elif self.repeat_mode == "all":
                     logger.info("Repeat set to all, loading new copy of current player")
-                    repeat_coroutine = self.add_song(client, message, self.active_player.url, True)
+                    repeat_coroutine = self.add_song(client, message, self.active_audio_source.url, True)
 
                 else:
                     logger.info("Repeat set to current, loading new copy of current player")
-                    repeat_coroutine = self.add_song(client, message, self.active_player.url, False)
+                    repeat_coroutine = self.add_song(client, message, self.active_audio_source.url, False)
 
             # the queue only had one song in it
             else:
@@ -257,7 +259,7 @@ class music_class:
                 # either repeat is set to "current" or "all;" since our queue is one song long, both behave the same
                 else:
                     logger.info("Repeat set to either current or all, loading new copy of current player")
-                    repeat_coroutine = self.add_song(client, message, self.active_player.url, True)
+                    repeat_coroutine = self.add_song(client, message, self.active_audio_source.url, True)
 
             # handle repeat coroutine for cases where repeat is not off
             if not repeat_coroutine == None:
@@ -269,12 +271,13 @@ class music_class:
                     repeat_future.result()
 
                     logger.info("Queueing up next track.")
-                    self.active_player = self.playback_queue[0].player
+                    self.active_audio_source = self.playback_queue[0].audio_source
 
                     next_song_message = message.channel.send("Now playing: {}".format(self.playback_queue[0]))
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
-                    queue_coroutine = self.active_player.start()
+                    #queue_coroutine = self.active_player.start()
+                    queue_coroutine = self.voice_channel.play(self.active_audio_source, after=lambda: self.advance_queue(client, message))
 
                 except Exception as e:
                     # an error occurred
@@ -333,15 +336,15 @@ async def execute(client, message, instruction, **kwargs):
     #Attempt to load and play a video
     try:
         #Check to see if the music class has a player running already
-        if client.music.active_player == None:
+        if client.music.active_audio_source == None:
             #there isn't an active player; add a song and start playing.
             logger.info("No active player was found. Adding song.")
             await client.music.add_song(client, message, instruction[1], True)
             logger.info("Queue currently contains {} songs.".format(len(client.music)))
             logger.info("Playing song.")
 
-            message.channel.send("Now playing: {}".format(client.music.playback_queue[0]))
-            client.music.active_player.start()
+            await message.channel.send("Now playing: {}".format(client.music.playback_queue[0]))
+            client.music.voice_channel.play(client.music.active_audio_source)
             client.music.set_status("playing")
 
         else:
