@@ -112,7 +112,7 @@ class music_class:
             return info
 
         except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error("During song info extraction, an exception of type {} has occurred".format(type(e).__name__))
             logger.error(e)
 
 
@@ -159,7 +159,7 @@ class music_class:
             return player
 
         except Exception as e:
-            logger.error("An exception of type {} has occurred".format(type(e).__name__))
+            logger.error("During player creation, an exception of type {} has occurred".format(type(e).__name__))
             logger.error(e)
 
 
@@ -182,20 +182,20 @@ class music_class:
         extracted_info = await self.extract_song_info(url, ytdl_options={})
         songs_to_append = [];
         if "entries" in extracted_info:
-            await client.send_message(message.channel, "Playback request received for a playlist. Processing {} songs.".format(len(extracted_info.get("entries"))))
+            await message.channel.send("Playback request received for a playlist. Processing {} songs.".format(len(extracted_info.get("entries"))))
             for entry in extracted_info["entries"]:
                 # check to see if user has permissions to add songs from this source
                 if self.filter_songs_by_permissions(client, entry):
                     songs_to_append.append(song_entry(message, await self.create_player_from_info(entry, after=lambda: self.advance_queue(client, message))))
                 else:
-                    await client.send_message(message.channel, "The streams you requested come from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
+                    await message.channel.send("The streams you requested come from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
                     return
         else:
             # check to see if user has permissions to add songs from this source
             if self.filter_songs_by_permissions(client, extracted_info):
                 songs_to_append.append(song_entry(message, await self.create_player_from_info(extracted_info, after=lambda: self.advance_queue(client, message))))
             else:
-                await client.send_message(message.channel, "The stream you requested comes from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
+                await message.channel.send("The stream you requested comes from a stream source you do not have permissions to play. For more information, please contact a Bullins-Bot admin.")
                 return
 
         # append songs to playback queue
@@ -206,7 +206,7 @@ class music_class:
                 self.playback_queue.appendleft(new_song)
             if self.active_player == None:
                 self.active_player = self.playback_queue[0].player
-            await client.send_message(message.channel, "Queued {}".format(new_song))
+            await message.channel.send("Queued {}".format(new_song))
 
 
     def advance_queue(self, client, message):
@@ -229,7 +229,7 @@ class music_class:
                     logger.info("Queueing up next track.")
                     self.active_player = self.playback_queue[0].player
 
-                    next_song_message = client.send_message(message.channel, "Now playing: {}".format(self.playback_queue[0]))
+                    next_song_message = message.channel.send("Now playing: {}".format(self.playback_queue[0]))
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
                     queue_coroutine = self.active_player.start()
@@ -249,7 +249,7 @@ class music_class:
                 if self.repeat_mode == "off":
                     repeat_coroutine = None;
 
-                    next_song_message = client.send_message(message.channel, "Queue empty. Disconnecting from voice channel.")
+                    next_song_message = message.channel.send("Queue empty. Disconnecting from voice channel.")
                     logger.info("Queue empty. Disconnecting from voice channel.")
 
                     queue_coroutine = self.voice_channel.disconnect()
@@ -271,7 +271,7 @@ class music_class:
                     logger.info("Queueing up next track.")
                     self.active_player = self.playback_queue[0].player
 
-                    next_song_message = client.send_message(message.channel, "Now playing: {}".format(self.playback_queue[0]))
+                    next_song_message = message.channel.send("Now playing: {}".format(self.playback_queue[0]))
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
                     queue_coroutine = self.active_player.start()
@@ -326,7 +326,7 @@ async def execute(client, message, instruction, **kwargs):
         logger.warning("Client is already in a voice channel.")
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error("While attempting to join a voice channel, an exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
 
 
@@ -340,7 +340,7 @@ async def execute(client, message, instruction, **kwargs):
             logger.info("Queue currently contains {} songs.".format(len(client.music)))
             logger.info("Playing song.")
 
-            client.send_message(message.channel, "Now playing: {}".format(client.music.playback_queue[0]))
+            message.channel.send("Now playing: {}".format(client.music.playback_queue[0]))
             client.music.active_player.start()
             client.music.set_status("playing")
 
@@ -360,11 +360,11 @@ async def execute(client, message, instruction, **kwargs):
     except AttributeError as e:
         logger.error("User not connected to voice channel.")
         logger.error(e)
-        await client.send_message(message.channel, "Error: Requester isn't in a voice channel.")
+        await message.channel.send("Error: Requester isn't in a voice channel.")
 
     except DownloadError as e:
         logger.error("Unable to download video")
-        await client.send_message(message.channel, "Error: Invalid link.")
+        await message.channel.send("Error: Invalid link.")
         logger.error(e)
         await client.voice.disconnect()
 
@@ -376,17 +376,17 @@ async def execute(client, message, instruction, **kwargs):
         await client.voice.disconnect()
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
-        await client.send_message(message.channel, "An unknown error has occurred.")
+        logger.error("While attempting to load and play a song, an exception of type {} has occurred".format(type(e).__name__))
+        await message.channel.send("An unknown error has occurred.")
         logger.error(e)
         await client.voice.disconnect()
 
 
 async def connect_to_voice_channel(client, message):
     #find voice channel author is in
-    logger.debug(message.server.channels)
+    logger.debug(message.guild.channels)
 
-    for channel in message.server.channels:
+    for channel in message.guild.channels:
         if message.author in channel.voice_members:
             logger.info("{} is in voice channel {}. Joining.".format(message.author.display_name, channel.name))
             client.voice = await client.join_voice_channel(channel)
@@ -396,10 +396,10 @@ async def queue_info(client, message, instruction, **kwargs):
     """Reports a list of information about the songs currently in the playback queue."""
     message_string = "The current playback queue contains the following {} song(s):".format(len(client.music.playback_queue))
     logger.info(message_string)
-    await client.send_message(message.channel, message_string)
+    await message.channel.send(message_string)
     for song in client.music.playback_queue:
         logger.info(song)
-        await client.send_message(message.channel, song)
+        await message.channel.send(song)
 
 
 async def pause(client, message, instruction, **kwargs):
@@ -410,18 +410,18 @@ async def pause(client, message, instruction, **kwargs):
             logger.info("Pausing playback")
             client.music.active_player.pause()
             client.music.set_status("paused")
-            await client.send_message(message.channel, "Stream paused.")
+            await message.channel.send("Stream paused.")
         else:
-            await client.send_message(message.channel, "Nothing is playing right now.")
+            await message.channel.send("Nothing is playing right now.")
 
     except AttributeError:
         logger.error("No stream player to pause.")
-        await client.send_message(message.channel, "Error: No stream to pause.")
+        await message.channel.send("Error: No stream to pause.")
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error("While pausing playback, an exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
-        await client.send_message(message.channel, "An unknown error has occured")
+        await message.channel.send("An unknown error has occured")
 
 
 async def resume(client, message, instruction, **kwargs):
@@ -432,19 +432,19 @@ async def resume(client, message, instruction, **kwargs):
             logger.info("Resuming playback")
             client.music.set_status("playing")
             client.music.active_player.resume()
-            await client.send_message(message.channel, "Stream resumed.")
+            await message.channel.send("Stream resumed.")
 
         else:
-            await client.send_message(message.channel, "Playback isn't currently paused.")
+            await message.channel.send("Playback isn't currently paused.")
 
     except AttributeError:
         logger.error("No stream player to resume.")
-        await client.send_message(message.channel, "Error: No stream to resume.")
+        await message.channel.send("Error: No stream to resume.")
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error("While resuming playback, an exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
-        await client.send_message(message.channel, "An unknown error has occured")
+        await message.channel.send("An unknown error has occured")
 
 
 async def stop(client, message, instruction, **kwargs):
@@ -454,17 +454,17 @@ async def stop(client, message, instruction, **kwargs):
         client.music.set_status("inactive")
         client.music.active_player.stop()
 
-        await client.send_message(message.channel, "Stream stopped.")
+        await message.channel.send("Stream stopped.")
         await client.voice.disconnect()
 
     except AttributeError:
         logger.error("No stream player to stop.")
-        await client.send_message(message.channel, "Error: No stream to stop.")
+        await message.channel.send("Error: No stream to stop.")
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error("While stopping playback, an exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
-        await client.send_message(message.channel, "An unknown error has occured")
+        await message.channel.send("An unknown error has occured")
 
 
 def limit_volume(volume_level):
@@ -491,7 +491,7 @@ async def adjust_volume(client, message, instruction):
         client.music.active_player.volume = limit_volume(client.music.active_player.volume - volume_adjustment)
 
     logger.info("Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
-    await client.send_message(message.channel, "Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
+    await message.channel.send("Volume adjusted to {:.0%}.".format(client.music.active_player.volume))
 
 
 async def set_volume(client, message, instruction, **kwargs):
@@ -504,7 +504,7 @@ async def set_volume(client, message, instruction, **kwargs):
     try:
         if len(instruction) == 1:
             logger.info("current volume: %s", client.music.active_player.volume)
-            await client.send_message(message.channel, "Song is currently playing at {:.0%}.".format(client.music.active_player.volume))
+            await message.channel.send("Song is currently playing at {:.0%}.".format(client.music.active_player.volume))
 
         elif instruction[1][0] in ['+','-']:
             await adjust_volume(client, message, instruction)
@@ -514,16 +514,16 @@ async def set_volume(client, message, instruction, **kwargs):
             logger.info("attempting to manually set volume")
             client.music.active_player.volume = limit_volume(volume_adjustment)
             logger.info("Set volume to {:.0%}.".format(client.music.active_player.volume))
-            await client.send_message(message.channel, "Set volume to {:.0%}.".format(client.music.active_player.volume))
+            await message.channel.send("Set volume to {:.0%}.".format(client.music.active_player.volume))
 
     except ValueError:
         logger.error("Attempted to adjust volume by something other than a number")
-        await client.send_message(message.channel, "Error: Invalid volume change")
+        await message.channel.send("Error: Invalid volume change")
 
     except Exception as e:
         logger.error("An exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
-        await client.send_message(message.channel, "An unknown error has occurred.")
+        await message.channel.send("An unknown error has occurred.")
         await client.voice.disconnect()
 
 
@@ -539,17 +539,17 @@ async def set_repeat_mode(client, message, instruction, **kwargs):
         if len(instruction) == 1:
             message_string = "Repeat mode: {}".format(client.music.repeat_mode)
             logger.info(message_string)
-            await client.send_message(message.channel, message_string)
+            await message.channel.send(message_string)
 
         elif instruction[1] in ["all", "current", "off"]:
             client.music.repeat_mode = instruction[1]
             message_string = "Setting repeat mode to \"{}\".".format(instruction[1])
             logger.info(message_string)
-            await client.send_message(message.channel, message_string)
+            await message.channel.send(message_string)
 
         else:
             logger.error("Invalid repeat mode.")
-            await client.send_message(message.channel, "Invalid repeat mode setting. Please choose between \"all\", \"current\", or \"off\".")
+            await message.channel.send("Invalid repeat mode setting. Please choose between \"all\", \"current\", or \"off\".")
 
     except Exception as e:
         logger.error("An exception of type {} has occurred".format(type(e).__name__))
@@ -564,5 +564,5 @@ async def skip_track(client, message, instruction, **kwargs):
     else:
         message_string = "Song skip requested. Playing next song."
     logger.info(message_string)
-    await client.send_message(message.channel, message_string)
+    await message.channel.send(message_string)
     client.music.active_player.stop()
