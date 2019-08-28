@@ -70,7 +70,7 @@ class music_class:
 
     @asyncio.coroutine
     def extract_song_info(self, url, *, ytdl_options=None, **kwargs):
-        """This uses part of the code from the "create_ytdl_player" function from discord.py, specifically the parts that extract song information.
+        """This uses part of the code from the "create_ytdl_player" function from a previous version of discord.py, specifically the parts that extract song information.
         The big difference here is that this version caches data pulled from youtube_dl, as it appears to be the biggest bottleneck on playback,
         especially when trying to play a given song more than song_cache during a given bot lifecycle.
 
@@ -118,7 +118,7 @@ class music_class:
 
     @asyncio.coroutine
     def create_audio_source_from_info(self, info, **kwargs):
-        """This uses part of the code from the "create_ytdl_player" function from discord.py, specifically the part related to creating a player and updating dynamic player information.
+        """This uses part of the code from the "create_ytdl_player" function from a previous version of discord.py, specifically the part related to creating a player and updating dynamic player information.
         This creates a stream player for a single song from information extracted using youtube-dl, then returns that stream player.
         """
         try:
@@ -234,7 +234,7 @@ class music_class:
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
                     #queue_coroutine = self.active_player.start()
-                    queue_coroutine = self.voice_channel.play(self.active_audio_source, after=lambda: self.advance_queue(client, message))
+                    queue_coroutine = self.voice_channel.play(self.active_audio_source, after=lambda x: self.advance_queue(client, message))
 
                 # else repeat is set to all; insert a duplicate of the current song into the queue
                 elif self.repeat_mode == "all":
@@ -277,7 +277,7 @@ class music_class:
                     logger.info("Now playing: {}".format(self.playback_queue[0]))
 
                     #queue_coroutine = self.active_player.start()
-                    queue_coroutine = self.voice_channel.play(self.active_audio_source, after=lambda: self.advance_queue(client, message))
+                    queue_coroutine = self.voice_channel.play(self.active_audio_source, after=lambda x: self.advance_queue(client, message))
 
                 except Exception as e:
                     # an error occurred
@@ -291,7 +291,7 @@ class music_class:
                 message_future.result()
             except Exception as e:
                 # an error occurred
-                logger.error("An exception of type {} has occurred".format(type(e).__name__))
+                logger.error("In examining the message future, an exception of type {} has occurred".format(type(e).__name__))
                 logger.error(e)
 
             # run the assigned queue coroutine
@@ -301,7 +301,7 @@ class music_class:
                 queue_future.result()
             except Exception as e:
                 # an error occurred
-                logger.error("An exception of type {} has occurred".format(type(e).__name__))
+                logger.error("In examining the queue future, an exception of type {} has occurred".format(type(e).__name__))
                 logger.error(e)
 
 
@@ -335,21 +335,21 @@ async def execute(client, message, instruction, **kwargs):
 
     #Attempt to load and play a video
     try:
-        #Check to see if the music class has a player running already
+        #Check to see if the music class's audio source is already playing
         if client.music.active_audio_source == None:
-            #there isn't an active player; add a song and start playing.
+            #no audio source has been stored to play
             logger.info("No active player was found. Adding song.")
             await client.music.add_song(client, message, instruction[1], True)
             logger.info("Queue currently contains {} songs.".format(len(client.music)))
             logger.info("Playing song.")
 
             await message.channel.send("Now playing: {}".format(client.music.playback_queue[0]))
-            client.music.voice_channel.play(client.music.active_audio_source)
+            client.music.voice_channel.play(client.music.active_audio_source, after=lambda x: client.music.advance_queue(client, message))
             client.music.set_status("playing")
 
         else:
-            #there is an active player
-            logger.warning("Existing player found. Attempting to add song to queue.")
+            #there is an active audio source
+            logger.warning("Existing audio source found. Attempting to add song to queue.")
             if client.music.status in ["playing","paused"]:
                 #a song is currently playing or paused; add track to back of queue_info
                 await client.music.add_song(client, message, instruction[1], True)
@@ -357,7 +357,7 @@ async def execute(client, message, instruction, **kwargs):
 
             else:
                 #this is a sanity check to make sure I'm updating the status flag right; if this calls, we have a problem
-                logger.error("You shouldn't be seeing this.")
+                logger.error("You shouldn't be seeing this. This should only occur if the audio source is stopped, but still present.")
 
     #TODO: make a function to handle shutdown on errors in a more uniform way
     except AttributeError as e:
@@ -524,7 +524,7 @@ async def set_volume(client, message, instruction, **kwargs):
         await message.channel.send("Error: Invalid volume change")
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error("While setting playback volume, an exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
         await message.channel.send("An unknown error has occurred.")
         await client.voice.disconnect()
@@ -555,7 +555,7 @@ async def set_repeat_mode(client, message, instruction, **kwargs):
             await message.channel.send("Invalid repeat mode setting. Please choose between \"all\", \"current\", or \"off\".")
 
     except Exception as e:
-        logger.error("An exception of type {} has occurred".format(type(e).__name__))
+        logger.error("While setting a repeat mode, an exception of type {} has occurred".format(type(e).__name__))
         logger.error(e)
 
 
